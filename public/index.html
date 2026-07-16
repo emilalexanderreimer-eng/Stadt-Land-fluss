@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stadt Land Fluss</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8C%8D%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --paper: #ffffff;
+    --ink: #2b2a28;
+    --muted: #7a766e;
+    --line: #e3ded3;
+    --accent: #1f6f5c;
+    --accent-soft: #e2f0ec;
+    --warn: #b3443a;
+    --warn-soft: #f7e5e3;
+    --gold: #b98a1e;
+    --gold-soft: #f7efdc;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 64px;
+  }
+  .app { width: 100%; max-width: 860px; }
+
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 2.2rem; letter-spacing: 0.04em; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); margin-top: 6px; font-style: italic; }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 6px rgba(60, 50, 30, 0.06);
+  }
+  .card h2 {
+    font-size: 1.15rem;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+
+  label { font-size: 0.9rem; color: var(--muted); display: block; margin-bottom: 4px; }
+  input[type="text"], input[type="number"] {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fdfcf9;
+    width: 100%;
+  }
+  input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-color: var(--accent);
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 10px 18px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .row > div { flex: 1; min-width: 140px; }
+
+  .chiplist { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 0.92rem;
+  }
+  .chip button { all: unset; cursor: pointer; font-weight: bold; line-height: 1; color: inherit; }
+  .chip.player { background: var(--gold-soft); border-color: var(--gold); color: #7c5c12; }
+  .chip.player.offline { opacity: 0.45; }
+
+  .letter-stage { text-align: center; padding: 12px 0; }
+  .big-letter {
+    font-size: 6rem;
+    font-weight: bold;
+    color: var(--accent);
+    line-height: 1;
+    min-height: 6.2rem;
+    display: block;
+  }
+  .timer { font-size: 2rem; font-variant-numeric: tabular-nums; }
+  .timer.low { color: var(--warn); }
+  .stage-hint { color: var(--muted); font-size: 0.9rem; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px;
+    text-align: left;
+    font-size: 0.95rem;
+    vertical-align: middle;
+  }
+  th { background: #faf8f2; font-weight: bold; }
+  td input[type="text"] { border: none; background: transparent; padding: 4px; border-radius: 4px; }
+  td input[type="text"]:focus { outline: 2px solid var(--accent); }
+  td.invalid-answer { background: var(--warn-soft); }
+
+  .points { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .pts-20 { color: var(--gold); font-weight: bold; }
+  .pts-10 { color: var(--accent); }
+  .pts-5  { color: var(--muted); }
+  .pts-0  { color: var(--warn); }
+  .score-check { user-select: none; font-size: 0.8rem; color: var(--muted); display: block; }
+
+  .actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .scoreboard-total { font-size: 1.4rem; font-weight: bold; }
+  .leader { color: var(--gold); }
+  .hidden { display: none !important; }
+
+  .join-url {
+    background: var(--accent-soft);
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.95rem;
+    margin-bottom: 12px;
+    word-break: break-all;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(244, 241, 234, 0.96);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    text-align: center;
+    padding: 20px;
+  }
+  .overlay .big-letter { font-size: 9rem; min-height: 9rem; }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .toast.show { opacity: 1; }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Stadt <span>·</span> Land <span>·</span> Fluss</h1>
+    <p>Multiplayer im WLAN — jeder auf seinem eigenen Gerät.</p>
+  </header>
+
+  <!-- ══════════ JOIN ══════════ -->
+  <section id="view-join">
+    <div class="card">
+      <h2>Mitspielen</h2>
+      <div class="row">
+        <div>
+          <label for="join-name">Dein Name</label>
+          <input type="text" id="join-name" placeholder="z.&thinsp;B. Emil" maxlength="20" autocomplete="off">
+        </div>
+        <div style="flex:0">
+          <button id="join-btn">Beitreten</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ LOBBY ══════════ -->
+  <section id="view-lobby" class="hidden">
+    <div class="card">
+      <h2>Lobby</h2>
+      <div class="join-url" id="join-url"></div>
+      <div class="chiplist" id="lobby-players"></div>
+    </div>
+
+    <!-- Nur Spielleiter -->
+    <div id="host-config">
+      <div class="card">
+        <h2>Kategorien</h2>
+        <div class="row">
+          <div>
+            <label for="category-name">Kategorie</label>
+            <input type="text" id="category-name" placeholder="z.&thinsp;B. Pflanze" maxlength="30" autocomplete="off">
+          </div>
+          <div style="flex:0">
+            <button id="add-category" class="secondary">+ Kategorie</button>
+          </div>
+        </div>
+        <div class="chiplist" id="category-list"></div>
+      </div>
+      <div class="card">
+        <h2>Regeln</h2>
+        <div class="row">
+          <div>
+            <label for="round-seconds">Zeit pro Runde (Sekunden)</label>
+            <input type="number" id="round-seconds" value="60" min="10" max="600">
+          </div>
+          <div>
+            <label for="round-count">Anzahl Runden</label>
+            <input type="number" id="round-count" value="5" min="1" max="26">
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="start-game">Spiel starten</button>
+      </div>
+    </div>
+
+    <!-- Alle anderen -->
+    <div id="guest-info" class="card hidden">
+      <h2>Spielregeln dieser Runde</h2>
+      <p id="guest-config" style="line-height:1.7;"></p>
+      <p class="stage-hint" style="margin-top:10px;">
+        Warte, bis <strong id="guest-hostname"></strong> das Spiel startet …
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════ PLAY ══════════ -->
+  <section id="view-play" class="hidden">
+    <div class="card letter-stage" style="padding:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <strong id="play-round-label"></strong>
+        <span style="font-size:2rem; font-weight:bold; color:var(--accent);" id="play-letter"></span>
+        <span class="timer" id="play-timer"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="play-player-label"></h2>
+      <table id="play-table"><tbody></tbody></table>
+      <div class="actions">
+        <button id="finish-inputs">Fertig!</button>
+      </div>
+      <p class="stage-hint" style="text-align:center; margin-top:8px;">
+        „Fertig!" beendet die Runde für <strong>alle</strong> — wie beim Original.
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════ SCORING ══════════ -->
+  <section id="view-scoring" class="hidden">
+    <div class="card">
+      <h2 id="scoring-label"></h2>
+      <p class="stage-hint" style="margin-bottom:12px;">
+        Punkte: <span class="pts-20">20</span> = einzige Antwort in der Kategorie,
+        <span class="pts-10">10</span> = einzigartige Antwort,
+        <span class="pts-5">5</span> = doppelte Antwort,
+        <span class="pts-0">0</span> = leer/ungültig/falscher Buchstabe.
+        <span id="scoring-host-hint"></span>
+      </p>
+      <div style="overflow-x:auto;">
+        <table id="scoring-table"></table>
+      </div>
+      <div class="actions" id="scoring-actions">
+        <button id="confirm-scores">Punkte übernehmen</button>
+      </div>
+      <p class="stage-hint hidden" id="scoring-wait" style="text-align:center; margin-top:8px;"></p>
+    </div>
+  </section>
+
+  <!-- ══════════ SCOREBOARD ══════════ -->
+  <section id="view-scoreboard" class="hidden">
+    <div class="card">
+      <h2 id="scoreboard-label">Punktestand</h2>
+      <table id="scoreboard-table"></table>
+      <div class="actions" id="scoreboard-actions">
+        <button id="next-round">Nächste Runde</button>
+        <button id="end-game" class="secondary">Spiel beenden</button>
+      </div>
+      <p class="stage-hint hidden" id="scoreboard-wait" style="text-align:center; margin-top:8px;"></p>
+    </div>
+  </section>
+
+  <!-- ══════════ GAME OVER ══════════ -->
+  <section id="view-gameover" class="hidden">
+    <div class="card letter-stage">
+      <h2>Spiel vorbei!</h2>
+      <p id="winner-line" style="font-size:1.4rem; margin:16px 0;"></p>
+      <table id="final-table" style="text-align:left;"></table>
+      <div class="actions">
+        <button id="play-again">Nochmal spielen</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>Stadt Land Fluss · Multiplayer im lokalen Netzwerk</footer>
+</div>
+
+<!-- Buchstaben-Splash -->
+<div class="overlay hidden" id="letter-splash">
+  <h2 id="splash-round"></h2>
+  <span class="big-letter" id="splash-letter">?</span>
+  <p class="stage-hint">Buchstabe wird gezogen …</p>
+</div>
+
+<!-- Verbindungs-Overlay -->
+<div class="overlay hidden" id="reconnect-overlay">
+  <h2>Verbindung unterbrochen</h2>
+  <p class="stage-hint" style="margin-top:10px;">Verbinde neu …</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ─── Client-Zustand ──────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+
+let ws = null;
+let myName = sessionStorage.getItem("slf-name") || "";
+let joined = false;
+let state = null;          // letzter Server-State
+let localAnswers = [];     // eigene Eingaben während der Spielphase
+let builtRound = 0;        // für welche Runde die Eingabetabelle gebaut wurde
+let splashRound = 0;       // für welche Runde der Splash lief
+let timerInterval = null;
+let sendDebounce = null;
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
+}
+
+function show(viewId) {
+  for (const sec of document.querySelectorAll("section")) sec.classList.add("hidden");
+  $(viewId).classList.remove("hidden");
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+// ─── Verbindung ──────────────────────────────────────────────────────
+function connect() {
+  const proto = location.protocol === "https:" ? "wss:" : "ws:";
+  ws = new WebSocket(`${proto}//${location.host}`);
+
+  ws.addEventListener("open", () => {
+    $("reconnect-overlay").classList.add("hidden");
+    if (myName) ws.send(JSON.stringify({ type: "join", name: myName }));
+  });
+
+  ws.addEventListener("message", (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+
+    if (msg.type === "error") { toast(msg.msg); return; }
+
+    if (msg.type === "joined") {
+      joined = true;
+      myName = msg.name;
+      sessionStorage.setItem("slf-name", myName);
+      return;
+    }
+
+    if (msg.type === "collect") {
+      sendAnswers();
+      return;
+    }
+
+    if (msg.type === "state") {
+      state = msg;
+      render();
+    }
+  });
+
+  ws.addEventListener("close", () => {
+    joined = false;
+    if (myName) $("reconnect-overlay").classList.remove("hidden");
+    setTimeout(connect, 1500);
+  });
+}
+
+function sendMsg(obj) {
+  if (ws && ws.readyState === 1) ws.send(JSON.stringify(obj));
+}
+
+function sendAnswers() {
+  sendMsg({ type: "answers", answers: localAnswers });
+}
+
+// ─── Join ────────────────────────────────────────────────────────────
+function doJoin() {
+  const name = $("join-name").value.trim();
+  if (!name) { toast("Bitte einen Namen eingeben."); return; }
+  myName = name;
+  sendMsg({ type: "join", name });
+}
+$("join-btn").addEventListener("click", doJoin);
+$("join-name").addEventListener("keydown", (e) => { if (e.key === "Enter") doJoin(); });
+
+// ─── Rendering ───────────────────────────────────────────────────────
+function render() {
+  if (!state || !joined) { show("view-join"); return; }
+
+  switch (state.phase) {
+    case "lobby": renderLobby(); break;
+    case "play": renderPlay(); break;
+    case "scoring": renderScoring(); break;
+    case "scoreboard": renderScoreboard(); break;
+    case "gameover": renderGameOver(); break;
+  }
+}
+
+// ── Lobby ──
+function renderLobby() {
+  stopTimer();
+  builtRound = 0;
+
+  $("join-url").innerHTML =
+    "Mitspieler öffnen im gleichen WLAN: <strong>" +
+    state.urls.map(escapeHtml).join("</strong> oder <strong>") + "</strong>";
+
+  const pl = $("lobby-players");
+  pl.innerHTML = "";
+  for (const p of state.players) {
+    const chip = document.createElement("span");
+    chip.className = "chip player" + (p.connected ? "" : " offline");
+    chip.textContent =
+      (p.name === state.hostName ? "👑 " : "") +
+      p.name +
+      (p.name === state.you ? " (du)" : "");
+    pl.append(chip);
+  }
+
+  $("host-config").classList.toggle("hidden", !state.isHost);
+  $("guest-info").classList.toggle("hidden", state.isHost);
+
+  if (state.isHost) {
+    renderCategoryChips();
+    const sec = $("round-seconds");
+    const cnt = $("round-count");
+    if (document.activeElement !== sec) sec.value = state.roundSeconds;
+    if (document.activeElement !== cnt) cnt.value = state.totalRounds;
+  } else {
+    $("guest-config").innerHTML =
+      "<strong>Kategorien:</strong> " + state.categories.map(escapeHtml).join(", ") +
+      "<br><strong>Zeit pro Runde:</strong> " + state.roundSeconds + " Sekunden" +
+      "<br><strong>Runden:</strong> " + state.totalRounds;
+    $("guest-hostname").textContent = state.hostName || "…";
+  }
+  show("view-lobby");
+}
+
+function renderCategoryChips() {
+  const cl = $("category-list");
+  cl.innerHTML = "";
+  state.categories.forEach((cat, i) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.append(cat);
+    const x = document.createElement("button");
+    x.textContent = "×";
+    x.title = "Entfernen";
+    x.addEventListener("click", () => {
+      if (state.categories.length <= 2) { toast("Mindestens zwei Kategorien nötig."); return; }
+      const cats = state.categories.filter((_, j) => j !== i);
+      sendMsg({ type: "config", categories: cats });
+    });
+    chip.append(x);
+    cl.append(chip);
+  });
+}
+
+function addCategory() {
+  const input = $("category-name");
+  const cat = input.value.trim();
+  if (!cat) return;
+  if (state.categories.some((c) => c.trim().toLowerCase() === cat.toLowerCase())) {
+    toast("Diese Kategorie gibt es schon.");
+    return;
+  }
+  if (state.categories.length >= 12) { toast("Maximal 12 Kategorien."); return; }
+  sendMsg({ type: "config", categories: [...state.categories, cat] });
+  input.value = "";
+  input.focus();
+}
+$("add-category").addEventListener("click", addCategory);
+$("category-name").addEventListener("keydown", (e) => { if (e.key === "Enter") addCategory(); });
+
+$("round-seconds").addEventListener("change", () =>
+  sendMsg({ type: "config", roundSeconds: $("round-seconds").value }));
+$("round-count").addEventListener("change", () =>
+  sendMsg({ type: "config", totalRounds: $("round-count").value }));
+
+$("start-game").addEventListener("click", () => sendMsg({ type: "start" }));
+
+// ── Spielphase ──
+function renderPlay() {
+  const meInRound = state.players.some((p) => p.name === state.you && p.inRound);
+
+  $("play-round-label").textContent = `Runde ${state.round} von ${state.totalRounds}`;
+  $("play-letter").textContent = state.letter;
+
+  if (!meInRound) {
+    // erst nächste Runde dabei
+    $("play-player-label").textContent = "Du bist ab der nächsten Runde dabei — kurz warten!";
+    $("play-table").querySelector("tbody").innerHTML = "";
+    $("finish-inputs").disabled = true;
+    show("view-play");
+    startTimer();
+    return;
+  }
+
+  if (builtRound !== state.round) {
+    builtRound = state.round;
+    localAnswers = state.categories.map(() => "");
+    buildPlayTable();
+    showSplash();
+  }
+  $("finish-inputs").disabled = false;
+  $("play-player-label").textContent = `Deine Antworten mit „${state.letter}":`;
+  show("view-play");
+  startTimer();
+}
+
+function buildPlayTable() {
+  const tbody = $("play-table").querySelector("tbody");
+  tbody.innerHTML = "";
+  state.categories.forEach((cat, i) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = cat;
+    th.style.width = "30%";
+    const td = document.createElement("td");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.dataset.idx = i;
+    input.autocomplete = "off";
+    input.addEventListener("input", () => {
+      localAnswers[i] = input.value;
+      clearTimeout(sendDebounce);
+      sendDebounce = setTimeout(sendAnswers, 800);
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const next = tbody.querySelector(`input[data-idx="${i + 1}"]`);
+        if (next) next.focus(); else $("finish-inputs").focus();
+      }
+    });
+    td.append(input);
+    tr.append(th, td);
+    tbody.append(tr);
+  });
+}
+
+function showSplash() {
+  if (splashRound === state.round) return;
+  splashRound = state.round;
+  $("splash-round").textContent = `Runde ${state.round} von ${state.totalRounds}`;
+  $("letter-splash").classList.remove("hidden");
+  const ALPHA = "ABCDEFGHIJKLMNOPRSTUVWZ";
+  let ticks = 0;
+  const spin = setInterval(() => {
+    $("splash-letter").textContent = ALPHA[Math.floor(Math.random() * ALPHA.length)];
+    ticks++;
+    if (ticks > 16) {
+      clearInterval(spin);
+      $("splash-letter").textContent = state.letter;
+      setTimeout(() => {
+        $("letter-splash").classList.add("hidden");
+        const first = $("play-table").querySelector("input");
+        if (first) first.focus();
+      }, 1300);
+    }
+  }, 90);
+}
+
+$("finish-inputs").addEventListener("click", () => {
+  if (localAnswers.some((a) => a.trim() === "")) {
+    toast("Erst alle Felder ausfüllen!");
+    return;
+  }
+  sendMsg({ type: "finish", answers: localAnswers });
+});
+
+function startTimer() {
+  stopTimer();
+  updateTimerDisplay();
+  timerInterval = setInterval(updateTimerDisplay, 250);
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+function updateTimerDisplay() {
+  const el = $("play-timer");
+  if (!state || !state.endsAt) { el.textContent = ""; return; }
+  const left = Math.max(0, Math.ceil((state.endsAt - Date.now()) / 1000));
+  const shown = Math.min(state.roundSeconds, left);
+  el.textContent = shown;
+  el.classList.toggle("low", shown <= 10);
+}
+
+// ── Auswertung ──
+function renderScoring() {
+  stopTimer();
+  $("scoring-label").textContent =
+    `Auswertung — Runde ${state.round}, Buchstabe „${state.letter}"` +
+    (state.finishedBy ? ` · ${state.finishedBy} rief zuerst „Fertig!"` : "");
+
+  $("scoring-host-hint").textContent = state.isHost
+    ? "Klicke eine Antwort an, um sie als ungültig zu markieren (und zurück)."
+    : "";
+
+  const inRound = state.players.filter((p) => p.inRound);
+  const table = $("scoring-table");
+  table.innerHTML = "";
+
+  const head = document.createElement("tr");
+  head.append(document.createElement("th"));
+  for (const p of inRound) {
+    const th = document.createElement("th");
+    th.textContent = p.name + (p.name === state.you ? " (du)" : "");
+    head.append(th);
+  }
+  table.append(head);
+
+  state.categories.forEach((cat, ci) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = cat;
+    tr.append(th);
+
+    for (const p of inRound) {
+      const td = document.createElement("td");
+      const raw = (state.answers[p.name] && state.answers[p.name][ci] || "").trim();
+      const isInvalid = state.invalid[p.name] && state.invalid[p.name][ci];
+      const pts = state.points[p.name] ? state.points[p.name][ci] : 0;
+      const wrongLetter = raw && !isInvalid && pts === 0;
+
+      td.classList.toggle("invalid-answer", Boolean(isInvalid || wrongLetter));
+
+      const answerLine = document.createElement("div");
+      answerLine.textContent = raw || "—";
+      if (isInvalid) answerLine.style.textDecoration = "line-through";
+      td.append(answerLine);
+
+      const ptsLine = document.createElement("span");
+      ptsLine.className = `score-check pts-${pts}`;
+      ptsLine.textContent = wrongLetter ? "0 Punkte (ungültig)" : `${pts} Punkte`;
+      td.append(ptsLine);
+
+      if (state.isHost && raw) {
+        td.style.cursor = "pointer";
+        td.title = "Klicken: gültig/ungültig umschalten";
+        td.addEventListener("click", () =>
+          sendMsg({ type: "toggleInvalid", player: p.name, catIdx: ci }));
+      }
+      tr.append(td);
+    }
+    table.append(tr);
+  });
+
+  const sumRow = document.createElement("tr");
+  const sumTh = document.createElement("th");
+  sumTh.textContent = "Runde gesamt";
+  sumRow.append(sumTh);
+  for (const p of inRound) {
+    const td = document.createElement("td");
+    td.className = "points";
+    td.innerHTML = `<strong>${state.roundTotals[p.name] || 0}</strong>`;
+    sumRow.append(td);
+  }
+  table.append(sumRow);
+
+  $("scoring-actions").classList.toggle("hidden", !state.isHost);
+  const wait = $("scoring-wait");
+  wait.classList.toggle("hidden", state.isHost);
+  wait.textContent = `Warte, bis ${state.hostName} die Punkte übernimmt …`;
+
+  show("view-scoring");
+}
+
+$("confirm-scores").addEventListener("click", () => sendMsg({ type: "confirmScores" }));
+
+// ── Punktestand ──
+function sortedPlayers() {
+  return [...state.players].sort((a, b) => b.score - a.score);
+}
+
+function renderScoreboard() {
+  stopTimer();
+  $("scoreboard-label").textContent = `Punktestand nach Runde ${state.round}`;
+  const table = $("scoreboard-table");
+  table.innerHTML = "";
+  const ranked = sortedPlayers();
+  const best = ranked.length ? ranked[0].score : 0;
+  ranked.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    const rank = document.createElement("th");
+    rank.textContent = `${i + 1}.`;
+    rank.style.width = "3rem";
+    const name = document.createElement("td");
+    name.textContent = p.name + (p.name === state.you ? " (du)" : "") + (p.connected ? "" : " (offline)");
+    if (p.score === best && best > 0) name.classList.add("leader");
+    const pts = document.createElement("td");
+    pts.className = "points scoreboard-total";
+    pts.textContent = p.score;
+    tr.append(rank, name, pts);
+    table.append(tr);
+  });
+
+  const isLast = state.round >= state.totalRounds;
+  $("scoreboard-actions").classList.toggle("hidden", !state.isHost);
+  $("next-round").classList.toggle("hidden", isLast);
+  $("end-game").textContent = isLast ? "Zum Endergebnis" : "Spiel beenden";
+  const wait = $("scoreboard-wait");
+  wait.classList.toggle("hidden", state.isHost);
+  wait.textContent = `Warte auf ${state.hostName} …`;
+
+  show("view-scoreboard");
+}
+
+$("next-round").addEventListener("click", () => sendMsg({ type: "nextRound" }));
+$("end-game").addEventListener("click", () => sendMsg({ type: "endGame" }));
+
+// ── Spielende ──
+function renderGameOver() {
+  stopTimer();
+  const ranked = sortedPlayers();
+  const best = ranked.length ? ranked[0].score : 0;
+  const winners = ranked.filter((p) => p.score === best).map((p) => p.name);
+  $("winner-line").innerHTML = winners.length === 1
+    ? `🏆 <strong>${escapeHtml(winners[0])}</strong> gewinnt mit ${best} Punkten!`
+    : `🤝 Unentschieden zwischen <strong>${winners.map(escapeHtml).join(" und ")}</strong> (${best} Punkte)!`;
+
+  const table = $("final-table");
+  table.innerHTML = "";
+  ranked.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<th style="width:3rem">${i + 1}.</th><td>${escapeHtml(p.name)}</td>` +
+      `<td class="points"><strong>${p.score}</strong></td>`;
+    table.append(tr);
+  });
+
+  $("play-again").classList.toggle("hidden", !state.isHost);
+  show("view-gameover");
+}
+
+$("play-again").addEventListener("click", () => sendMsg({ type: "playAgain" }));
+
+// ─── Init ────────────────────────────────────────────────────────────
+if (myName) $("join-name").value = myName;
+connect();
+</script>
+</body>
+</html>

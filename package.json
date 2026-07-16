@@ -1,0 +1,13 @@
+{
+  "name": "stadt-land-fluss",
+  "version": "1.0.0",
+  "description": "Stadt Land Fluss als Multiplayer-Spiel im lokalen Netzwerk (WLAN)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
