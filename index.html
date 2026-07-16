@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stadt Land Fluss</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8C%8D%3C/text%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --paper: #ffffff;
+    --ink: #2b2a28;
+    --muted: #7a766e;
+    --line: #e3ded3;
+    --accent: #1f6f5c;
+    --accent-soft: #e2f0ec;
+    --warn: #b3443a;
+    --warn-soft: #f7e5e3;
+    --gold: #b98a1e;
+    --gold-soft: #f7efdc;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 64px;
+  }
+  .app { width: 100%; max-width: 860px; }
+
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 {
+    font-size: 2.2rem;
+    letter-spacing: 0.04em;
+  }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); margin-top: 6px; font-style: italic; }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 6px rgba(60, 50, 30, 0.06);
+  }
+  .card h2 {
+    font-size: 1.15rem;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+
+  label { font-size: 0.9rem; color: var(--muted); display: block; margin-bottom: 4px; }
+  input[type="text"], input[type="number"] {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fdfcf9;
+    width: 100%;
+  }
+  input[type="text"]:focus, input[type="number"]:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-color: var(--accent);
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 10px 18px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  button.secondary {
+    background: transparent;
+    color: var(--accent);
+  }
+  button.small { font-size: 0.85rem; padding: 5px 10px; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .row > div { flex: 1; min-width: 140px; }
+
+  .chiplist { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 0.92rem;
+  }
+  .chip button {
+    all: unset;
+    cursor: pointer;
+    font-weight: bold;
+    line-height: 1;
+    color: inherit;
+  }
+  .chip.player { background: var(--gold-soft); border-color: var(--gold); color: #7c5c12; }
+
+  .letter-stage { text-align: center; padding: 12px 0; }
+  .big-letter {
+    font-size: 6rem;
+    font-weight: bold;
+    color: var(--accent);
+    line-height: 1;
+    min-height: 6.2rem;
+    display: block;
+  }
+  .timer {
+    font-size: 2rem;
+    font-variant-numeric: tabular-nums;
+    margin: 10px 0 4px;
+  }
+  .timer.low { color: var(--warn); }
+  .stage-hint { color: var(--muted); font-size: 0.9rem; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px;
+    text-align: left;
+    font-size: 0.95rem;
+    vertical-align: middle;
+  }
+  th { background: #faf8f2; font-weight: bold; }
+  td input[type="text"] { border: none; background: transparent; padding: 4px; border-radius: 4px; }
+  td input[type="text"]:focus { outline: 2px solid var(--accent); }
+  td.invalid-answer { background: var(--warn-soft); }
+
+  .points { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .pts-20 { color: var(--gold); font-weight: bold; }
+  .pts-10 { color: var(--accent); }
+  .pts-5  { color: var(--muted); }
+  .pts-0  { color: var(--warn); }
+
+  .score-check { cursor: pointer; user-select: none; font-size: 0.8rem; color: var(--muted); display: block; }
+
+  .actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+
+  .scoreboard-total { font-size: 1.4rem; font-weight: bold; }
+  .leader { color: var(--gold); }
+
+  .hidden { display: none !important; }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+  }
+  .toast.show { opacity: 1; }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Stadt <span>·</span> Land <span>·</span> Fluss</h1>
+    <p>Das klassische Wortspiel — jetzt ohne zerknittertes Papier.</p>
+  </header>
+
+  <!-- ══════════ SETUP ══════════ -->
+  <section id="view-setup">
+    <div class="card">
+      <h2>Spieler</h2>
+      <div class="row">
+        <div>
+          <label for="player-name">Name</label>
+          <input type="text" id="player-name" placeholder="z.&thinsp;B. Emil" maxlength="20">
+        </div>
+        <div style="flex:0">
+          <button id="add-player" class="secondary">+ Spieler</button>
+        </div>
+      </div>
+      <div class="chiplist" id="player-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Kategorien</h2>
+      <div class="row">
+        <div>
+          <label for="category-name">Kategorie</label>
+          <input type="text" id="category-name" placeholder="z.&thinsp;B. Pflanze" maxlength="30">
+        </div>
+        <div style="flex:0">
+          <button id="add-category" class="secondary">+ Kategorie</button>
+        </div>
+      </div>
+      <div class="chiplist" id="category-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Regeln</h2>
+      <div class="row">
+        <div>
+          <label for="round-seconds">Zeit pro Runde (Sekunden)</label>
+          <input type="number" id="round-seconds" value="60" min="10" max="600">
+        </div>
+        <div>
+          <label for="round-count">Anzahl Runden</label>
+          <input type="number" id="round-count" value="5" min="1" max="26">
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="start-game">Spiel starten</button>
+    </div>
+  </section>
+
+  <!-- ══════════ LETTER DRAW ══════════ -->
+  <section id="view-letter" class="hidden">
+    <div class="card letter-stage">
+      <h2 id="round-label">Runde 1</h2>
+      <span class="big-letter" id="letter-display">?</span>
+      <p class="stage-hint">Buchstabe wird gezogen …</p>
+    </div>
+  </section>
+
+  <!-- ══════════ PLAY ══════════ -->
+  <section id="view-play" class="hidden">
+    <div class="card letter-stage" style="padding:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <strong id="play-round-label"></strong>
+        <span style="font-size:2rem; font-weight:bold; color:var(--accent);" id="play-letter"></span>
+        <span class="timer" id="play-timer">60</span>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="play-player-label"></h2>
+      <table id="play-table"><tbody></tbody></table>
+      <div class="actions">
+        <button id="finish-inputs">Fertig!</button>
+      </div>
+      <p class="stage-hint" style="text-align:center; margin-top:8px;">
+        „Fertig!" beendet die Runde für alle — wie beim Original.
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════ HANDOVER (hot seat) ══════════ -->
+  <section id="view-handover" class="hidden">
+    <div class="card letter-stage">
+      <h2>Weitergeben!</h2>
+      <p style="font-size:1.3rem; margin:16px 0;">
+        Gib das Gerät an <strong id="handover-name"></strong> weiter.
+      </p>
+      <div class="actions">
+        <button id="handover-ready">Ich bin bereit</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ SCORING ══════════ -->
+  <section id="view-scoring" class="hidden">
+    <div class="card">
+      <h2 id="scoring-label"></h2>
+      <p class="stage-hint" style="margin-bottom:12px;">
+        Klickt eine Antwort an, um sie als ungültig zu markieren (und zurück).
+        Punkte: <span class="pts-20">20</span> = einzige Antwort in der Kategorie,
+        <span class="pts-10">10</span> = einzigartige Antwort,
+        <span class="pts-5">5</span> = doppelte Antwort,
+        <span class="pts-0">0</span> = leer/ungültig/falscher Buchstabe.
+      </p>
+      <div style="overflow-x:auto;">
+        <table id="scoring-table"></table>
+      </div>
+      <div class="actions">
+        <button id="confirm-scores">Punkte übernehmen</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ SCOREBOARD ══════════ -->
+  <section id="view-scoreboard" class="hidden">
+    <div class="card">
+      <h2 id="scoreboard-label">Punktestand</h2>
+      <table id="scoreboard-table"></table>
+      <div class="actions">
+        <button id="next-round">Nächste Runde</button>
+        <button id="end-game" class="secondary">Spiel beenden</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ GAME OVER ══════════ -->
+  <section id="view-gameover" class="hidden">
+    <div class="card letter-stage">
+      <h2>Spiel vorbei!</h2>
+      <p id="winner-line" style="font-size:1.4rem; margin:16px 0;"></p>
+      <table id="final-table" style="text-align:left;"></table>
+      <div class="actions">
+        <button id="play-again">Nochmal spielen</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    Stadt Land Fluss · Hot-Seat-Version: alle spielen nacheinander an diesem Gerät.<br>
+    Für Multiplayer im WLAN (jeder auf dem eigenen Gerät):
+    <a href="https://github.com/emilalexanderreimer-eng/Stadt-Land-fluss" style="color:var(--accent);">Server aus dem Repo starten</a> —
+    GitHub Pages kann nur statische Seiten, keinen Spielserver.
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ─── State ───────────────────────────────────────────────────────────
+const DEFAULT_CATEGORIES = ["Stadt", "Land", "Fluss", "Name", "Tier", "Beruf"];
+const ALPHABET = "ABCDEFGHIJKLMNOPRSTUVWZ"; // ohne Q, X, Y — klassisch schwer spielbar
+
+const state = {
+  players: [],
+  categories: [...DEFAULT_CATEGORIES],
+  roundSeconds: 60,
+  totalRounds: 5,
+  round: 0,
+  usedLetters: [],
+  letter: null,
+  currentPlayerIdx: 0,
+  answers: {},        // playerName -> [answer, ...]
+  invalid: {},        // playerName -> [bool, ...]
+  scores: {},         // playerName -> total
+  roundOverBy: null,  // wer "Fertig!" gedrückt hat
+  timerId: null,
+  timeLeft: 0,
+};
+
+// ─── Helpers ─────────────────────────────────────────────────────────
+const $ = (id) => document.getElementById(id);
+
+function show(viewId) {
+  for (const sec of document.querySelectorAll("section")) sec.classList.add("hidden");
+  $(viewId).classList.remove("hidden");
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+function normalize(s) {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// ─── Setup view ──────────────────────────────────────────────────────
+function renderChips() {
+  const pl = $("player-list");
+  pl.innerHTML = "";
+  state.players.forEach((name, i) => {
+    const chip = document.createElement("span");
+    chip.className = "chip player";
+    chip.append(name);
+    const x = document.createElement("button");
+    x.textContent = "×";
+    x.title = "Entfernen";
+    x.addEventListener("click", () => { state.players.splice(i, 1); renderChips(); });
+    chip.append(x);
+    pl.append(chip);
+  });
+
+  const cl = $("category-list");
+  cl.innerHTML = "";
+  state.categories.forEach((cat, i) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.append(cat);
+    const x = document.createElement("button");
+    x.textContent = "×";
+    x.title = "Entfernen";
+    x.addEventListener("click", () => { state.categories.splice(i, 1); renderChips(); });
+    chip.append(x);
+    cl.append(chip);
+  });
+}
+
+function addPlayer() {
+  const input = $("player-name");
+  const name = input.value.trim();
+  if (!name) return;
+  if (state.players.some(p => normalize(p) === normalize(name))) {
+    toast("Diesen Spieler gibt es schon.");
+    return;
+  }
+  if (state.players.length >= 8) { toast("Maximal 8 Spieler."); return; }
+  state.players.push(name);
+  input.value = "";
+  input.focus();
+  renderChips();
+}
+
+function addCategory() {
+  const input = $("category-name");
+  const cat = input.value.trim();
+  if (!cat) return;
+  if (state.categories.some(c => normalize(c) === normalize(cat))) {
+    toast("Diese Kategorie gibt es schon.");
+    return;
+  }
+  if (state.categories.length >= 12) { toast("Maximal 12 Kategorien."); return; }
+  state.categories.push(cat);
+  input.value = "";
+  input.focus();
+  renderChips();
+}
+
+$("add-player").addEventListener("click", addPlayer);
+$("player-name").addEventListener("keydown", e => { if (e.key === "Enter") addPlayer(); });
+$("add-category").addEventListener("click", addCategory);
+$("category-name").addEventListener("keydown", e => { if (e.key === "Enter") addCategory(); });
+
+$("start-game").addEventListener("click", () => {
+  if (state.players.length < 1) { toast("Mindestens ein Spieler nötig."); return; }
+  if (state.categories.length < 2) { toast("Mindestens zwei Kategorien nötig."); return; }
+  state.roundSeconds = Math.min(600, Math.max(10, parseInt($("round-seconds").value, 10) || 60));
+  state.totalRounds = Math.min(26, Math.max(1, parseInt($("round-count").value, 10) || 5));
+  state.round = 0;
+  state.usedLetters = [];
+  state.scores = Object.fromEntries(state.players.map(p => [p, 0]));
+  startRound();
+});
+
+// ─── Letter draw ─────────────────────────────────────────────────────
+function startRound() {
+  state.round += 1;
+  state.answers = Object.fromEntries(state.players.map(p => [p, state.categories.map(() => "")]));
+  state.invalid = Object.fromEntries(state.players.map(p => [p, state.categories.map(() => false)]));
+  state.currentPlayerIdx = 0;
+  state.roundOverBy = null;
+
+  const available = [...ALPHABET].filter(l => !state.usedLetters.includes(l));
+  const pool = available.length ? available : [...ALPHABET];
+  const finalLetter = pool[Math.floor(Math.random() * pool.length)];
+  state.letter = finalLetter;
+  state.usedLetters.push(finalLetter);
+
+  $("round-label").textContent = `Runde ${state.round} von ${state.totalRounds}`;
+  show("view-letter");
+
+  // kleine Zieh-Animation
+  let ticks = 0;
+  const spin = setInterval(() => {
+    $("letter-display").textContent = ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+    ticks++;
+    if (ticks > 14) {
+      clearInterval(spin);
+      $("letter-display").textContent = finalLetter;
+      setTimeout(() => beginTurn(), 1200);
+    }
+  }, 90);
+}
+
+// ─── Play (hot seat) ─────────────────────────────────────────────────
+function beginTurn() {
+  const player = state.players[state.currentPlayerIdx];
+  if (state.players.length > 1) {
+    $("handover-name").textContent = player;
+    show("view-handover");
+  } else {
+    showPlayView();
+  }
+}
+
+$("handover-ready").addEventListener("click", showPlayView);
+
+function showPlayView() {
+  const player = state.players[state.currentPlayerIdx];
+  $("play-round-label").textContent = `Runde ${state.round} · ${player}`;
+  $("play-letter").textContent = state.letter;
+  $("play-player-label").textContent = `${player}, deine Antworten mit „${state.letter}":`;
+
+  const tbody = $("play-table").querySelector("tbody");
+  tbody.innerHTML = "";
+  state.categories.forEach((cat, i) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = cat;
+    th.style.width = "30%";
+    const td = document.createElement("td");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.dataset.idx = i;
+    input.autocomplete = "off";
+    input.value = state.answers[player][i];
+    input.addEventListener("input", () => { state.answers[player][i] = input.value; });
+    input.addEventListener("keydown", e => {
+      if (e.key === "Enter") {
+        const next = tbody.querySelector(`input[data-idx="${i + 1}"]`);
+        if (next) next.focus(); else $("finish-inputs").focus();
+      }
+    });
+    td.append(input);
+    tr.append(th, td);
+    tbody.append(tr);
+  });
+
+  show("view-play");
+  tbody.querySelector("input").focus();
+  startTimer();
+}
+
+function startTimer() {
+  stopTimer();
+  state.timeLeft = state.roundSeconds;
+  updateTimerDisplay();
+  state.timerId = setInterval(() => {
+    state.timeLeft -= 1;
+    updateTimerDisplay();
+    if (state.timeLeft <= 0) {
+      toast("Zeit abgelaufen!");
+      endTurn(false);
+    }
+  }, 1000);
+}
+
+function stopTimer() {
+  if (state.timerId) { clearInterval(state.timerId); state.timerId = null; }
+}
+
+function updateTimerDisplay() {
+  const el = $("play-timer");
+  el.textContent = state.timeLeft;
+  el.classList.toggle("low", state.timeLeft <= 10);
+}
+
+$("finish-inputs").addEventListener("click", () => endTurn(true));
+
+function endTurn(finishedEarly) {
+  stopTimer();
+  const player = state.players[state.currentPlayerIdx];
+  if (finishedEarly && state.roundOverBy === null && allFilled(player)) {
+    state.roundOverBy = player;
+  }
+  state.currentPlayerIdx += 1;
+  if (state.currentPlayerIdx < state.players.length) {
+    beginTurn();
+  } else {
+    showScoring();
+  }
+}
+
+function allFilled(player) {
+  return state.answers[player].every(a => a.trim() !== "");
+}
+
+// ─── Scoring ─────────────────────────────────────────────────────────
+function answerCounts(catIdx) {
+  const counts = {};
+  for (const p of state.players) {
+    const a = normalize(state.answers[p][catIdx]);
+    if (!a || state.invalid[p][catIdx]) continue;
+    if (!startsWithLetter(a)) continue;
+    counts[a] = (counts[a] || 0) + 1;
+  }
+  return counts;
+}
+
+function startsWithLetter(normalized) {
+  return normalized.length > 0 && normalized[0].toUpperCase() === state.letter;
+}
+
+function pointsFor(player, catIdx, counts) {
+  const raw = state.answers[player][catIdx];
+  const a = normalize(raw);
+  if (!a || state.invalid[player][catIdx] || !startsWithLetter(a)) return 0;
+  const validAnswerers = Object.values(counts).reduce((s, c) => s + c, 0);
+  if (counts[a] > 1) return 5;
+  if (validAnswerers === 1) return 20;
+  return 10;
+}
+
+function renderScoring() {
+  const table = $("scoring-table");
+  table.innerHTML = "";
+
+  const head = document.createElement("tr");
+  head.append(document.createElement("th"));
+  for (const p of state.players) {
+    const th = document.createElement("th");
+    th.textContent = p;
+    head.append(th);
+  }
+  table.append(head);
+
+  state.categories.forEach((cat, ci) => {
+    const counts = answerCounts(ci);
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = cat;
+    tr.append(th);
+
+    for (const p of state.players) {
+      const td = document.createElement("td");
+      const raw = state.answers[p][ci].trim();
+      const pts = pointsFor(p, ci, counts);
+      const isInvalid = state.invalid[p][ci];
+      const wrongLetter = raw && !startsWithLetter(normalize(raw));
+
+      td.classList.toggle("invalid-answer", isInvalid || wrongLetter);
+      td.style.cursor = raw ? "pointer" : "default";
+      td.title = raw ? "Klicken: gültig/ungültig umschalten" : "";
+
+      const answerLine = document.createElement("div");
+      answerLine.textContent = raw || "—";
+      if (isInvalid) answerLine.style.textDecoration = "line-through";
+      td.append(answerLine);
+
+      const ptsLine = document.createElement("span");
+      ptsLine.className = `score-check pts-${pts}`;
+      ptsLine.textContent = wrongLetter && !isInvalid
+        ? "0 Punkte (falscher Buchstabe)"
+        : `${pts} Punkte`;
+      td.append(ptsLine);
+
+      if (raw) {
+        td.addEventListener("click", () => {
+          state.invalid[p][ci] = !state.invalid[p][ci];
+          renderScoring();
+        });
+      }
+      tr.append(td);
+    }
+    table.append(tr);
+  });
+
+  // Summenzeile
+  const sumRow = document.createElement("tr");
+  const sumTh = document.createElement("th");
+  sumTh.textContent = "Runde gesamt";
+  sumRow.append(sumTh);
+  for (const p of state.players) {
+    const td = document.createElement("td");
+    td.className = "points";
+    td.innerHTML = `<strong>${roundTotal(p)}</strong>`;
+    sumRow.append(td);
+  }
+  table.append(sumRow);
+}
+
+function roundTotal(player) {
+  let total = 0;
+  state.categories.forEach((_, ci) => {
+    total += pointsFor(player, ci, answerCounts(ci));
+  });
+  return total;
+}
+
+function showScoring() {
+  $("scoring-label").textContent =
+    `Auswertung — Runde ${state.round}, Buchstabe „${state.letter}"` +
+    (state.roundOverBy ? ` · ${state.roundOverBy} rief zuerst „Fertig!"` : "");
+  renderScoring();
+  show("view-scoring");
+}
+
+$("confirm-scores").addEventListener("click", () => {
+  for (const p of state.players) state.scores[p] += roundTotal(p);
+  showScoreboard();
+});
+
+// ─── Scoreboard ──────────────────────────────────────────────────────
+function sortedScores() {
+  return [...state.players].sort((a, b) => state.scores[b] - state.scores[a]);
+}
+
+function showScoreboard() {
+  $("scoreboard-label").textContent = `Punktestand nach Runde ${state.round}`;
+  const table = $("scoreboard-table");
+  table.innerHTML = "";
+  const ranked = sortedScores();
+  const best = state.scores[ranked[0]];
+  ranked.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    const rank = document.createElement("th");
+    rank.textContent = `${i + 1}.`;
+    rank.style.width = "3rem";
+    const name = document.createElement("td");
+    name.textContent = p;
+    if (state.scores[p] === best && best > 0) name.classList.add("leader");
+    const pts = document.createElement("td");
+    pts.className = "points scoreboard-total";
+    pts.textContent = state.scores[p];
+    tr.append(rank, name, pts);
+    table.append(tr);
+  });
+
+  const isLast = state.round >= state.totalRounds;
+  $("next-round").classList.toggle("hidden", isLast);
+  $("end-game").textContent = isLast ? "Zum Endergebnis" : "Spiel beenden";
+  show("view-scoreboard");
+}
+
+$("next-round").addEventListener("click", startRound);
+$("end-game").addEventListener("click", showGameOver);
+
+// ─── Game over ───────────────────────────────────────────────────────
+function showGameOver() {
+  const ranked = sortedScores();
+  const best = state.scores[ranked[0]];
+  const winners = ranked.filter(p => state.scores[p] === best);
+  $("winner-line").innerHTML = winners.length === 1
+    ? `🏆 <strong>${winners[0]}</strong> gewinnt mit ${best} Punkten!`
+    : `🤝 Unentschieden zwischen <strong>${winners.join(" und ")}</strong> (${best} Punkte)!`;
+
+  const table = $("final-table");
+  table.innerHTML = "";
+  ranked.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<th style="width:3rem">${i + 1}.</th><td>${escapeHtml(p)}</td>` +
+      `<td class="points"><strong>${state.scores[p]}</strong></td>`;
+    table.append(tr);
+  });
+  show("view-gameover");
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+$("play-again").addEventListener("click", () => {
+  show("view-setup");
+  renderChips();
+});
+
+// ─── Init ────────────────────────────────────────────────────────────
+renderChips();
+</script>
+</body>
+</html>
