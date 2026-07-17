@@ -287,6 +287,8 @@
         <span class="pts-10">10</span> = einzigartige Antwort,
         <span class="pts-5">5</span> = doppelte Antwort,
         <span class="pts-0">0</span> = leer/ungültig/falscher Buchstabe.
+        Antworten bekannter Kategorien werden automatisch über
+        <a href="https://www.wikidata.org" target="_blank" rel="noopener" style="color:var(--accent);">Wikidata</a> geprüft.
         <span id="scoring-host-hint"></span>
       </p>
       <div style="overflow-x:auto;">
@@ -649,7 +651,7 @@ function renderScoring() {
     (state.finishedBy ? ` · ${state.finishedBy} rief zuerst „Fertig!"` : "");
 
   $("scoring-host-hint").textContent = state.isHost
-    ? "Klicke eine Antwort an, um sie als ungültig zu markieren (und zurück)."
+    ? "Du kannst jede Entscheidung überstimmen: Antwort anklicken, um sie gültig/ungültig zu schalten."
     : "";
 
   const inRound = state.players.filter((p) => p.inRound);
@@ -690,6 +692,22 @@ function renderScoring() {
       ptsLine.textContent = wrongLetter ? "0 Punkte (ungültig)" : `${pts} Punkte`;
       td.append(ptsLine);
 
+      const chk = state.checks && state.checks[p.name] ? state.checks[p.name][ci] : "none";
+      if (raw && chk !== "none") {
+        const chkLine = document.createElement("span");
+        chkLine.className = "score-check";
+        if (chk === "pending") {
+          chkLine.textContent = "⏳ wird geprüft …";
+        } else if (chk === "ok") {
+          chkLine.textContent = "✓ Wikidata: bestätigt";
+          chkLine.style.color = "var(--accent)";
+        } else if (chk === "fail") {
+          chkLine.textContent = "✗ Wikidata: nicht gefunden";
+          chkLine.style.color = "var(--warn)";
+        }
+        td.append(chkLine);
+      }
+
       if (state.isHost && raw) {
         td.style.cursor = "pointer";
         td.title = "Klicken: gültig/ungültig umschalten";
@@ -714,9 +732,14 @@ function renderScoring() {
   table.append(sumRow);
 
   $("scoring-actions").classList.toggle("hidden", !state.isHost);
+  const confirmBtn = $("confirm-scores");
+  confirmBtn.disabled = Boolean(state.checksPending);
+  confirmBtn.textContent = state.checksPending ? "Antworten werden geprüft …" : "Punkte übernehmen";
   const wait = $("scoring-wait");
   wait.classList.toggle("hidden", state.isHost);
-  wait.textContent = `Warte, bis ${state.hostName} die Punkte übernimmt …`;
+  wait.textContent = state.checksPending
+    ? "Antworten werden über Wikidata geprüft …"
+    : `Warte, bis ${state.hostName} die Punkte übernimmt …`;
 
   show("view-scoring");
 }

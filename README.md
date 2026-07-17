@@ -48,7 +48,8 @@ Anderer Port: `PORT=8080 npm start`
 1. **Beitreten:** Jeder gibt seinen Namen ein. Wer zuerst beitritt, ist Spielleiter (👑) und legt Kategorien, Rundenzeit und Rundenzahl fest. Standardkategorien: Stadt, Land, Fluss, Name, Tier, Beruf.
 2. **Buchstabe ziehen:** Jede Runde wird ein zufälliger Buchstabe gezogen (ohne Q, X, Y; keine Wiederholungen, solange Buchstaben übrig sind).
 3. **Antworten:** Alle tippen **gleichzeitig** auf ihren eigenen Geräten. Der Timer läuft — und wer zuerst alle Felder füllt und **„Fertig!"** drückt, beendet die Runde für alle. Wie beim Original.
-4. **Auswertung:** Alle Antworten werden nebeneinander angezeigt und automatisch verglichen. Der Spielleiter kann zweifelhafte Antworten per Klick als ungültig markieren.
+4. **Auswertung:** Alle Antworten werden nebeneinander angezeigt und automatisch verglichen. Zusätzlich prüft das Spiel bei bekannten Kategorien automatisch über [Wikidata](https://www.wikidata.org), ob die Antwort stimmt — ob z. B. die genannte Stadt wirklich eine Stadt ist („Japan" zählt nicht als Stadt!). Nicht gefundene Antworten werden automatisch als ungültig markiert; der Spielleiter kann jede Entscheidung per Klick überstimmen.
+   Automatisch geprüft werden u. a.: Stadt, Land, Fluss, See, Berg, Insel, Name/Vorname/Nachname, Tier, Pflanze, Beruf, Essen, Getränk, Farbe, Sportart, Musikinstrument, Sprache, Marke, Band, Film. Eigene Kategorien ohne Prüfregel wertet weiterhin der Spielleiter.
 5. **Punkte** (klassische Regeln):
    - **20** — einzige gültige Antwort in der Kategorie
    - **10** — gültige Antwort, die kein anderer hat

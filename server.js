@@ -60,6 +60,7 @@ const game = {
   collecting: false,
   collectTimer: null,
   pending: new Set(),
+  checksPending: 0,
 };
 
 function lanUrls() {
@@ -158,6 +159,8 @@ function stateFor(p) {
     const inRound = game.players.filter((q) => q.inRound);
     base.answers = Object.fromEntries(inRound.map((q) => [q.name, q.answers]));
     base.invalid = Object.fromEntries(inRound.map((q) => [q.name, q.invalid]));
+    base.checks = Object.fromEntries(inRound.map((q) => [q.name, q.check]));
+    base.checksPending = game.checksPending > 0;
     base.points = points;
     base.roundTotals = totals;
   }
@@ -192,6 +195,7 @@ function startRound() {
     p.inRound = true;
     p.answers = game.categories.map(() => "");
     p.invalid = game.categories.map(() => false);
+    p.check = game.categories.map(() => "none");
   }
 
   game.phase = "play";
@@ -227,6 +231,7 @@ function finishCollect() {
   game.collecting = false;
   clearTimeout(game.collectTimer);
   game.phase = "scoring";
+  startAnswerChecks();
   broadcast();
 }
 
@@ -243,11 +248,170 @@ function resetGame() {
   game.players = [];
   game.collecting = false;
   game.pending = new Set();
+  game.checksPending = 0;
 }
 
 function sanitizeAnswers(raw) {
   const arr = Array.isArray(raw) ? raw : [];
   return game.categories.map((_, i) => String(arr[i] ?? "").slice(0, 40));
+}
+
+// ─── Automatische Antwort-Prüfung über Wikidata ──────────────────────
+// Bekannte Kategorien werden auf Wikidata-Klassen abgebildet; die
+// Prüfung fragt per SPARQL, ob es einen Eintrag mit passendem Namen
+// gibt, der (über Unterklassen/Taxonomie) zur Zielklasse gehört.
+const CHECK_ALIASES = {
+  "stadt": "stadt", "hauptstadt": "stadt", "ort": "stadt", "dorf": "stadt",
+  "land": "land", "staat": "land",
+  "fluss": "fluss", "gewässer": "gewaesser",
+  "see": "see", "berg": "berg", "insel": "insel",
+  "name": "name", "vorname": "vorname", "nachname": "nachname",
+  "tier": "tier",
+  "beruf": "beruf",
+  "pflanze": "pflanze", "blume": "pflanze", "baum": "pflanze",
+  "essen": "essen", "gericht": "essen", "speise": "essen", "lebensmittel": "essen",
+  "getränk": "getraenk",
+  "farbe": "farbe",
+  "sportart": "sportart", "sport": "sportart",
+  "musikinstrument": "instrument", "instrument": "instrument",
+  "sprache": "sprache",
+  "marke": "marke", "automarke": "marke",
+  "band": "band", "film": "film",
+};
+const CHECK_DEFS = {
+  stadt:      { path: "wdt:P31/wdt:P279*", targets: ["Q486972"] },            // menschliche Siedlung
+  land:       { path: "wdt:P31/wdt:P279*", targets: ["Q6256", "Q7275"] },     // Land, Staat
+  fluss:      { path: "wdt:P31/wdt:P279*", targets: ["Q355304", "Q4022"] },   // Wasserlauf, Fluss
+  gewaesser:  { path: "wdt:P31/wdt:P279*", targets: ["Q15324"] },
+  see:        { path: "wdt:P31/wdt:P279*", targets: ["Q23397"] },
+  berg:       { path: "wdt:P31/wdt:P279*", targets: ["Q8502"] },
+  insel:      { path: "wdt:P31/wdt:P279*", targets: ["Q23442"] },
+  name:       { path: "wdt:P31/wdt:P279*", targets: ["Q82799"] },
+  vorname:    { path: "wdt:P31/wdt:P279*", targets: ["Q202444"] },
+  nachname:   { path: "wdt:P31/wdt:P279*", targets: ["Q101352"] },
+  tier:       { path: "(wdt:P31|wdt:P279|wdt:P171)*", targets: ["Q729"] },    // inkl. Taxonomie-Kette
+  pflanze:    { path: "(wdt:P31|wdt:P279|wdt:P171)*", targets: ["Q756"] },
+  beruf:      { path: "(wdt:P31|wdt:P279)*", targets: ["Q28640", "Q12737077"] },
+  essen:      { path: "(wdt:P31|wdt:P279)*", targets: ["Q2095"] },
+  getraenk:   { path: "(wdt:P31|wdt:P279)*", targets: ["Q40050"] },
+  farbe:      { path: "(wdt:P31|wdt:P279)*", targets: ["Q1075"] },
+  sportart:   { path: "(wdt:P31|wdt:P279)*", targets: ["Q31629"] },
+  instrument: { path: "(wdt:P31|wdt:P279)*", targets: ["Q34379"] },
+  sprache:    { path: "(wdt:P31|wdt:P279)*", targets: ["Q34770"] },
+  marke:      { path: "(wdt:P31|wdt:P279)*", targets: ["Q431289"] },
+  band:       { path: "wdt:P31/wdt:P279*", targets: ["Q215380"] },
+  film:       { path: "wdt:P31/wdt:P279*", targets: ["Q11424"] },
+};
+
+function checkKeyFor(category) {
+  return CHECK_ALIASES[normalize(category)] || null;
+}
+
+function sparqlString(s) {
+  return '"' + String(s).replace(/[\\"]/g, "") + '"';
+}
+
+function buildCheckQuery(def, entries /* [norm, raw][] */) {
+  const branches = entries.map(([norm, raw], i) => `{
+    SERVICE wikibase:mwapi {
+      bd:serviceParam wikibase:endpoint "www.wikidata.org";
+                      wikibase:api "EntitySearch";
+                      mwapi:search ${sparqlString(raw)};
+                      mwapi:language "de";
+                      mwapi:limit "10".
+      ?item${i} wikibase:apiOutputItem mwapi:item.
+    }
+    ?item${i} rdfs:label|skos:altLabel ?lbl${i}.
+    FILTER(LANG(?lbl${i}) IN ("de","en"))
+    FILTER(LCASE(STR(?lbl${i})) = ${sparqlString(norm)})
+    ?item${i} ${def.path} ?t${i}.
+    VALUES ?t${i} { ${def.targets.map((t) => "wd:" + t).join(" ")} }
+    BIND(${sparqlString(norm)} AS ?search)
+  }`);
+  return `SELECT DISTINCT ?search WHERE { ${branches.join(" UNION ")} }`;
+}
+
+const checkCache = new Map(); // "catKey|antwort" -> true/false
+
+async function validateCategory(def, entries) {
+  const query = buildCheckQuery(def, entries);
+  const ctl = new AbortController();
+  const timeout = setTimeout(() => ctl.abort(), 15000);
+  try {
+    const res = await fetch(
+      "https://query.wikidata.org/sparql?format=json&query=" + encodeURIComponent(query),
+      {
+        signal: ctl.signal,
+        headers: {
+          "Accept": "application/sparql-results+json",
+          "User-Agent": "StadtLandFluss/1.0 (Spiel-Antwortpruefung)",
+        },
+      }
+    );
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const data = await res.json();
+    const ok = new Set(data.results.bindings.map((b) => b.search.value));
+    return new Map(entries.map(([norm]) => [norm, ok.has(norm)]));
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function applyCheckResult(p, ci, ok) {
+  p.check[ci] = ok ? "ok" : "fail";
+  if (!ok) p.invalid[ci] = true;
+}
+
+function startAnswerChecks() {
+  game.checksPending = 0;
+  const jobs = new Map(); // ci -> { catKey, def, entries: Map(norm -> raw) }
+
+  game.categories.forEach((cat, ci) => {
+    const catKey = checkKeyFor(cat);
+    const def = catKey ? CHECK_DEFS[catKey] : null;
+    for (const p of game.players) {
+      if (!p.inRound) continue;
+      const raw = (p.answers[ci] || "").trim();
+      const norm = normalize(raw);
+      if (!raw || !startsWithLetter(norm) || !def) {
+        p.check[ci] = "none";
+        continue;
+      }
+      const cacheKey = catKey + "|" + norm;
+      if (checkCache.has(cacheKey)) {
+        applyCheckResult(p, ci, checkCache.get(cacheKey));
+        continue;
+      }
+      p.check[ci] = "pending";
+      if (!jobs.has(ci)) jobs.set(ci, { catKey, def, entries: new Map() });
+      jobs.get(ci).entries.set(norm, raw);
+    }
+  });
+
+  for (const [ci, job] of jobs) {
+    game.checksPending += 1;
+    validateCategory(job.def, [...job.entries.entries()])
+      .then((results) => {
+        if (game.phase !== "scoring") return;
+        for (const [norm, ok] of results) checkCache.set(job.catKey + "|" + norm, ok);
+        for (const p of game.players) {
+          if (!p.inRound || p.check[ci] !== "pending") continue;
+          const norm = normalize(p.answers[ci] || "");
+          if (results.has(norm)) applyCheckResult(p, ci, results.get(norm));
+          else p.check[ci] = "none";
+        }
+      })
+      .catch(() => {
+        // Wikidata nicht erreichbar: keine automatische Wertung
+        for (const p of game.players) {
+          if (p.inRound && p.check[ci] === "pending") p.check[ci] = "none";
+        }
+      })
+      .finally(() => {
+        game.checksPending -= 1;
+        if (game.phase === "scoring") broadcast();
+      });
+  }
 }
 
 // ─── WebSocket-Handling ──────────────────────────────────────────────
@@ -294,6 +458,7 @@ wss.on("connection", (ws) => {
           inRound: false, // steigt ab der nächsten Runde ein
           answers: game.categories.map(() => ""),
           invalid: game.categories.map(() => false),
+          check: game.categories.map(() => "none"),
         };
         game.players.push(me);
       }
@@ -374,7 +539,7 @@ wss.on("connection", (ws) => {
       }
 
       case "confirmScores": {
-        if (!isHost || game.phase !== "scoring") return;
+        if (!isHost || game.phase !== "scoring" || game.checksPending > 0) return;
         const { totals } = scoringMatrix();
         for (const p of game.players) p.score += totals[p.name] || 0;
         game.phase = "scoreboard";
