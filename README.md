@@ -1,8 +1,27 @@
 # Stadt Land Fluss
 
-Das klassische Wortspiel als Multiplayer-Spiel im lokalen Netzwerk (WLAN) — jeder spielt auf seinem eigenen Gerät (Handy, Tablet, Laptop).
+Das klassische Wortspiel als Multiplayer-Spiel — jeder spielt auf seinem eigenen Gerät (Handy, Tablet, Laptop).
 
-## Starten
+Es gibt zwei Varianten:
+
+| | Peer-to-Peer (GitHub Pages) | Eigener Server (WLAN) |
+|---|---|---|
+| Wo? | **https://emilalexanderreimer-eng.github.io/Stadt-Land-fluss/** | `npm start` auf einem Rechner |
+| Host | Der Browser eines Spielers | Node.js-Prozess |
+| Installation | keine | Node.js auf einem Gerät |
+| Verbindung | Raum-Code, Spieldaten laufen direkt zwischen den Geräten (WebRTC) | alle verbinden sich zur IP des Servers |
+
+## Variante 1: Peer-to-Peer — einfach im Browser (empfohlen)
+
+Seite öffnen: **https://emilalexanderreimer-eng.github.io/Stadt-Land-fluss/**
+
+1. Ein Spieler klickt **„Spiel erstellen"** — sein Browser ist der Host. Die Seite muss bei ihm offen bleiben.
+2. Er teilt den angezeigten **Raum-Code** (oder den Link) mit den anderen.
+3. Alle anderen geben Code und Namen ein und spielen mit — egal ob im gleichen WLAN oder woanders.
+
+Technik: Die Spieldaten laufen per WebRTC direkt zwischen den Geräten (PeerJS). Nur für den Verbindungsaufbau wird kurz die öffentliche PeerJS-Cloud als Vermittler genutzt — danach ist alles Peer-to-Peer. Der Quellcode liegt in `p2p/`.
+
+## Variante 2: Eigener Server im WLAN
 
 Voraussetzung: [Node.js](https://nodejs.org) (Version 18 oder neuer).
 
@@ -20,7 +39,7 @@ Mitspieler im gleichen WLAN öffnen im Browser:
   http://192.168.1.42:3000
 ```
 
-Alle Mitspieler öffnen diese Adresse im Browser — sie müssen nur im **gleichen WLAN** sein. Nichts installieren, keine App nötig.
+Alle Mitspieler öffnen diese Adresse im Browser — sie müssen nur im **gleichen WLAN** sein. Nichts installieren, keine App nötig. Diese Variante braucht kein Internet, nur das lokale Netz.
 
 Anderer Port: `PORT=8080 npm start`
 
@@ -46,4 +65,7 @@ Nach der letzten Runde gibt es eine Siegerehrung mit Endstand.
 
 ## Technik
 
-Node.js-Server (`server.js`) mit WebSockets ([ws](https://github.com/websockets/ws)) als einziger Abhängigkeit. Der Client (`public/index.html`) ist eine einzelne HTML-Datei mit Vanilla-JavaScript — kein Build-Schritt, kein Framework. Der Server hält den kompletten Spielzustand und verteilt ihn an alle Clients.
+Beide Varianten teilen sich dieselbe Spiellogik und dasselbe Nachrichtenprotokoll; der Host hält den kompletten Spielzustand und verteilt ihn an alle Clients. Kein Build-Schritt, kein Framework — nur Vanilla-JavaScript.
+
+- **Peer-to-Peer** (`p2p/index.html`): Die Spiellogik läuft im Browser des Spielleiters, Transport per WebRTC-Datenkanälen ([PeerJS](https://peerjs.com), als `p2p/peerjs.min.js` eingebunden). Wird über den `gh-pages`-Branch auf GitHub Pages veröffentlicht.
+- **Eigener Server** (`server.js` + `public/index.html`): Node.js mit WebSockets ([ws](https://github.com/websockets/ws)) als einziger Abhängigkeit.

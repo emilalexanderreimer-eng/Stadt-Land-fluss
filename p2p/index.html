@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stadt Land Fluss</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='0.9em' font-size='90'%3E%F0%9F%8C%8D%3C/text%3E%3C/svg%3E">
+<script src="peerjs.min.js"></script>
+<style>
+  :root {
+    --bg: #f4f1ea;
+    --paper: #ffffff;
+    --ink: #2b2a28;
+    --muted: #7a766e;
+    --line: #e3ded3;
+    --accent: #1f6f5c;
+    --accent-soft: #e2f0ec;
+    --warn: #b3443a;
+    --warn-soft: #f7e5e3;
+    --gold: #b98a1e;
+    --gold-soft: #f7efdc;
+    --radius: 12px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: Georgia, "Times New Roman", serif;
+    background: var(--bg);
+    color: var(--ink);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 64px;
+  }
+  .app { width: 100%; max-width: 860px; }
+
+  header { text-align: center; margin-bottom: 28px; }
+  header h1 { font-size: 2.2rem; letter-spacing: 0.04em; }
+  header h1 span { color: var(--accent); }
+  header p { color: var(--muted); margin-top: 6px; font-style: italic; }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 6px rgba(60, 50, 30, 0.06);
+  }
+  .card h2 {
+    font-size: 1.15rem;
+    margin-bottom: 14px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+  }
+
+  label { font-size: 0.9rem; color: var(--muted); display: block; margin-bottom: 4px; }
+  input[type="text"], input[type="number"] {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 8px 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fdfcf9;
+    width: 100%;
+  }
+  input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+    border-color: var(--accent);
+  }
+
+  button {
+    font-family: inherit;
+    font-size: 1rem;
+    padding: 10px 18px;
+    border: 1px solid var(--accent);
+    background: var(--accent);
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  button:hover { filter: brightness(1.08); }
+  button.secondary { background: transparent; color: var(--accent); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; }
+  .row > div { flex: 1; min-width: 140px; }
+
+  .chiplist { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--accent-soft);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    border-radius: 999px;
+    padding: 5px 12px;
+    font-size: 0.92rem;
+  }
+  .chip button { all: unset; cursor: pointer; font-weight: bold; line-height: 1; color: inherit; }
+  .chip.player { background: var(--gold-soft); border-color: var(--gold); color: #7c5c12; }
+  .chip.player.offline { opacity: 0.45; }
+
+  .letter-stage { text-align: center; padding: 12px 0; }
+  .big-letter {
+    font-size: 6rem;
+    font-weight: bold;
+    color: var(--accent);
+    line-height: 1;
+    min-height: 6.2rem;
+    display: block;
+  }
+  .timer { font-size: 2rem; font-variant-numeric: tabular-nums; }
+  .timer.low { color: var(--warn); }
+  .stage-hint { color: var(--muted); font-size: 0.9rem; }
+
+  table { width: 100%; border-collapse: collapse; }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 8px;
+    text-align: left;
+    font-size: 0.95rem;
+    vertical-align: middle;
+  }
+  th { background: #faf8f2; font-weight: bold; }
+  td input[type="text"] { border: none; background: transparent; padding: 4px; border-radius: 4px; }
+  td input[type="text"]:focus { outline: 2px solid var(--accent); }
+  td.invalid-answer { background: var(--warn-soft); }
+
+  .points { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .pts-20 { color: var(--gold); font-weight: bold; }
+  .pts-10 { color: var(--accent); }
+  .pts-5  { color: var(--muted); }
+  .pts-0  { color: var(--warn); }
+  .score-check { user-select: none; font-size: 0.8rem; color: var(--muted); display: block; }
+
+  .actions { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .scoreboard-total { font-size: 1.4rem; font-weight: bold; }
+  .leader { color: var(--gold); }
+  .hidden { display: none !important; }
+
+  .room-code {
+    background: var(--accent-soft);
+    border: 1px dashed var(--accent);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    text-align: center;
+  }
+  .room-code .code {
+    font-size: 2.2rem;
+    font-weight: bold;
+    letter-spacing: 0.35em;
+    color: var(--accent);
+  }
+  .room-code .share { font-size: 0.85rem; color: var(--muted); word-break: break-all; margin-top: 6px; }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(244, 241, 234, 0.96);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    text-align: center;
+    padding: 20px;
+  }
+  .overlay .big-letter { font-size: 9rem; min-height: 9rem; }
+
+  .toast {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--ink);
+    color: #fff;
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    opacity: 0;
+    transition: opacity 0.3s;
+    pointer-events: none;
+    z-index: 20;
+  }
+  .toast.show { opacity: 1; }
+
+  footer { text-align: center; color: var(--muted); font-size: 0.8rem; margin-top: 30px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Stadt <span>·</span> Land <span>·</span> Fluss</h1>
+    <p>Multiplayer ohne Server — ein Spieler ist der Host, alle anderen treten mit dem Raum-Code bei.</p>
+  </header>
+
+  <!-- ══════════ HOME ══════════ -->
+  <section id="view-home">
+    <div class="card">
+      <h2>Neues Spiel erstellen</h2>
+      <p class="stage-hint" style="margin-bottom:12px;">
+        Du wirst Spielleiter. Dein Browser ist der Host — lass die Seite offen, solange gespielt wird.
+      </p>
+      <div class="row">
+        <div>
+          <label for="host-name">Dein Name</label>
+          <input type="text" id="host-name" placeholder="z.&thinsp;B. Emil" maxlength="20" autocomplete="off">
+        </div>
+        <div style="flex:0">
+          <button id="create-btn">Spiel erstellen</button>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Spiel beitreten</h2>
+      <div class="row">
+        <div>
+          <label for="join-code">Raum-Code</label>
+          <input type="text" id="join-code" placeholder="z.&thinsp;B. KWXR3" maxlength="5" autocomplete="off" style="text-transform:uppercase; letter-spacing:0.2em;">
+        </div>
+        <div>
+          <label for="join-name">Dein Name</label>
+          <input type="text" id="join-name" placeholder="z.&thinsp;B. Anna" maxlength="20" autocomplete="off">
+        </div>
+        <div style="flex:0">
+          <button id="join-btn" class="secondary">Beitreten</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════ LOBBY ══════════ -->
+  <section id="view-lobby" class="hidden">
+    <div class="card">
+      <h2>Lobby</h2>
+      <div class="room-code">
+        <div>Raum-Code: <span class="code" id="room-code-display"></span></div>
+        <div class="share" id="room-share"></div>
+      </div>
+      <div class="chiplist" id="lobby-players"></div>
+    </div>
+
+    <!-- Nur Spielleiter -->
+    <div id="host-config">
+      <div class="card">
+        <h2>Kategorien</h2>
+        <div class="row">
+          <div>
+            <label for="category-name">Kategorie</label>
+            <input type="text" id="category-name" placeholder="z.&thinsp;B. Pflanze" maxlength="30" autocomplete="off">
+          </div>
+          <div style="flex:0">
+            <button id="add-category" class="secondary">+ Kategorie</button>
+          </div>
+        </div>
+        <div class="chiplist" id="category-list"></div>
+      </div>
+      <div class="card">
+        <h2>Regeln</h2>
+        <div class="row">
+          <div>
+            <label for="round-seconds">Zeit pro Runde (Sekunden)</label>
+            <input type="number" id="round-seconds" value="60" min="10" max="600">
+          </div>
+          <div>
+            <label for="round-count">Anzahl Runden</label>
+            <input type="number" id="round-count" value="5" min="1" max="26">
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="start-game">Spiel starten</button>
+      </div>
+    </div>
+
+    <!-- Alle anderen -->
+    <div id="guest-info" class="card hidden">
+      <h2>Spielregeln dieser Runde</h2>
+      <p id="guest-config" style="line-height:1.7;"></p>
+      <p class="stage-hint" style="margin-top:10px;">
+        Warte, bis <strong id="guest-hostname"></strong> das Spiel startet …
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════ PLAY ══════════ -->
+  <section id="view-play" class="hidden">
+    <div class="card letter-stage" style="padding:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <strong id="play-round-label"></strong>
+        <span style="font-size:2rem; font-weight:bold; color:var(--accent);" id="play-letter"></span>
+        <span class="timer" id="play-timer"></span>
+      </div>
+    </div>
+    <div class="card">
+      <h2 id="play-player-label"></h2>
+      <table id="play-table"><tbody></tbody></table>
+      <div class="actions">
+        <button id="finish-inputs">Fertig!</button>
+      </div>
+      <p class="stage-hint" style="text-align:center; margin-top:8px;">
+        „Fertig!" beendet die Runde für <strong>alle</strong> — wie beim Original.
+      </p>
+    </div>
+  </section>
+
+  <!-- ══════════ SCORING ══════════ -->
+  <section id="view-scoring" class="hidden">
+    <div class="card">
+      <h2 id="scoring-label"></h2>
+      <p class="stage-hint" style="margin-bottom:12px;">
+        Punkte: <span class="pts-20">20</span> = einzige Antwort in der Kategorie,
+        <span class="pts-10">10</span> = einzigartige Antwort,
+        <span class="pts-5">5</span> = doppelte Antwort,
+        <span class="pts-0">0</span> = leer/ungültig/falscher Buchstabe.
+        <span id="scoring-host-hint"></span>
+      </p>
+      <div style="overflow-x:auto;">
+        <table id="scoring-table"></table>
+      </div>
+      <div class="actions" id="scoring-actions">
+        <button id="confirm-scores">Punkte übernehmen</button>
+      </div>
+      <p class="stage-hint hidden" id="scoring-wait" style="text-align:center; margin-top:8px;"></p>
+    </div>
+  </section>
+
+  <!-- ══════════ SCOREBOARD ══════════ -->
+  <section id="view-scoreboard" class="hidden">
+    <div class="card">
+      <h2 id="scoreboard-label">Punktestand</h2>
+      <table id="scoreboard-table"></table>
+      <div class="actions" id="scoreboard-actions">
+        <button id="next-round">Nächste Runde</button>
+        <button id="end-game" class="secondary">Spiel beenden</button>
+      </div>
+      <p class="stage-hint hidden" id="scoreboard-wait" style="text-align:center; margin-top:8px;"></p>
+    </div>
+  </section>
+
+  <!-- ══════════ GAME OVER ══════════ -->
+  <section id="view-gameover" class="hidden">
+    <div class="card letter-stage">
+      <h2>Spiel vorbei!</h2>
+      <p id="winner-line" style="font-size:1.4rem; margin:16px 0;"></p>
+      <table id="final-table" style="text-align:left;"></table>
+      <div class="actions">
+        <button id="play-again">Nochmal spielen</button>
+      </div>
+    </div>
+  </section>
+
+  <footer>Stadt Land Fluss · Peer-to-Peer-Multiplayer · der Browser des Spielleiters ist der Host</footer>
+</div>
+
+<!-- Buchstaben-Splash -->
+<div class="overlay hidden" id="letter-splash">
+  <h2 id="splash-round"></h2>
+  <span class="big-letter" id="splash-letter">?</span>
+  <p class="stage-hint">Buchstabe wird gezogen …</p>
+</div>
+
+<!-- Verbindungs-Overlay -->
+<div class="overlay hidden" id="reconnect-overlay">
+  <h2 id="reconnect-title">Verbindung unterbrochen</h2>
+  <p class="stage-hint" style="margin-top:10px;" id="reconnect-hint">Verbinde neu …</p>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+
+// ═══════════════════════════════════════════════════════════════════
+//  Gemeinsames
+// ═══════════════════════════════════════════════════════════════════
+const $ = (id) => document.getElementById(id);
+const qs = new URLSearchParams(location.search);
+
+const DEFAULT_CATEGORIES = ["Stadt", "Land", "Fluss", "Name", "Tier", "Beruf"];
+const ALPHABET = [..."ABCDEFGHIJKLMNOPRSTUVWZ"]; // ohne Q, X, Y
+const COLLECT_GRACE_MS = 2500;
+const SPLASH_MS = 3000;
+const ROOM_PREFIX = "slf-v1-";
+const CODE_CHARS = "ABCDEFGHJKMNPRSTUVWXYZ23456789"; // ohne 0/O, 1/I/L, Q
+
+let toastTimer = null;
+function toast(msg) {
+  const el = $("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2500);
+}
+
+function show(viewId) {
+  for (const sec of document.querySelectorAll("section")) sec.classList.add("hidden");
+  $(viewId).classList.remove("hidden");
+}
+
+function escapeHtml(s) {
+  const div = document.createElement("div");
+  div.textContent = s;
+  return div.innerHTML;
+}
+
+function normalize(s) {
+  return String(s).trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+// Für Tests: ?ps=localhost:9000 nutzt einen lokalen PeerJS-Server
+function peerOptions() {
+  const ps = qs.get("ps");
+  if (ps) {
+    const [host, port] = ps.split(":");
+    return { host, port: parseInt(port, 10) || 9000, path: "/", secure: false };
+  }
+  return {}; // öffentliche PeerJS-Cloud
+}
+
+function genCode() {
+  let code = "";
+  for (let i = 0; i < 5; i++) code += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+  return code;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  HOST — läuft nur im Browser des Spielleiters
+// ═══════════════════════════════════════════════════════════════════
+let hostPeer = null;
+let game = null; // nur beim Host gesetzt
+
+function newGameState(code) {
+  return {
+    code,
+    phase: "lobby",
+    categories: [...DEFAULT_CATEGORIES],
+    roundSeconds: 60,
+    totalRounds: 5,
+    round: 0,
+    usedLetters: [],
+    letter: null,
+    endsAt: null,
+    hostName: null,
+    finishedBy: null,
+    players: [], // { name, ctx|null, connected, score, inRound, answers[], invalid[] }
+    roundTimer: null,
+    collecting: false,
+    collectTimer: null,
+    pending: new Set(),
+  };
+}
+
+function playerByName(name) {
+  return game.players.find((p) => normalize(p.name) === normalize(name));
+}
+
+// ── Punktelogik (klassische Regeln) ──
+function startsWithLetter(normalized) {
+  return normalized.length > 0 && normalized[0].toUpperCase() === game.letter;
+}
+
+function answerCounts(catIdx) {
+  const counts = {};
+  for (const p of game.players) {
+    if (!p.inRound || p.invalid[catIdx]) continue;
+    const a = normalize(p.answers[catIdx] || "");
+    if (!a || !startsWithLetter(a)) continue;
+    counts[a] = (counts[a] || 0) + 1;
+  }
+  return counts;
+}
+
+function pointsFor(p, catIdx, counts) {
+  if (!p.inRound || p.invalid[catIdx]) return 0;
+  const a = normalize(p.answers[catIdx] || "");
+  if (!a || !startsWithLetter(a)) return 0;
+  const validAnswerers = Object.values(counts).reduce((s, c) => s + c, 0);
+  if (counts[a] > 1) return 5;
+  if (validAnswerers === 1) return 20;
+  return 10;
+}
+
+function scoringMatrix() {
+  const points = {};
+  const totals = {};
+  for (const p of game.players) {
+    points[p.name] = [];
+    totals[p.name] = 0;
+  }
+  game.categories.forEach((_, ci) => {
+    const counts = answerCounts(ci);
+    for (const p of game.players) {
+      const pts = pointsFor(p, ci, counts);
+      points[p.name][ci] = pts;
+      totals[p.name] += pts;
+    }
+  });
+  return { points, totals };
+}
+
+// ── State-Verteilung ──
+function stateFor(p) {
+  const base = {
+    type: "state",
+    phase: game.phase,
+    you: p.name,
+    isHost: p.name === game.hostName,
+    hostName: game.hostName,
+    code: game.code,
+    now: Date.now(), // für Uhren-Abgleich der Clients
+    round: game.round,
+    totalRounds: game.totalRounds,
+    roundSeconds: game.roundSeconds,
+    categories: game.categories,
+    letter: game.letter,
+    endsAt: game.endsAt,
+    finishedBy: game.finishedBy,
+    players: game.players.map((q) => ({
+      name: q.name,
+      score: q.score,
+      connected: q.connected,
+      inRound: q.inRound,
+    })),
+  };
+  if (game.phase === "scoring") {
+    const { points, totals } = scoringMatrix();
+    const inRound = game.players.filter((q) => q.inRound);
+    base.answers = Object.fromEntries(inRound.map((q) => [q.name, q.answers]));
+    base.invalid = Object.fromEntries(inRound.map((q) => [q.name, q.invalid]));
+    base.points = points;
+    base.roundTotals = totals;
+  }
+  return base;
+}
+
+function broadcast() {
+  for (const p of game.players) {
+    if (p.connected && p.ctx) p.ctx.send(stateFor(p));
+  }
+}
+
+// ── Rundenablauf ──
+function startRound() {
+  game.round += 1;
+  game.finishedBy = null;
+  game.collecting = false;
+  clearTimeout(game.collectTimer);
+
+  const available = ALPHABET.filter((l) => !game.usedLetters.includes(l));
+  const pool = available.length ? available : ALPHABET;
+  game.letter = pool[Math.floor(Math.random() * pool.length)];
+  game.usedLetters.push(game.letter);
+
+  for (const p of game.players) {
+    p.inRound = true;
+    p.answers = game.categories.map(() => "");
+    p.invalid = game.categories.map(() => false);
+  }
+
+  game.phase = "play";
+  game.endsAt = Date.now() + SPLASH_MS + game.roundSeconds * 1000;
+  clearTimeout(game.roundTimer);
+  game.roundTimer = setTimeout(() => endRound(null), game.endsAt - Date.now());
+  broadcast();
+}
+
+function endRound(byName) {
+  if (game.phase !== "play" || game.collecting) return;
+  clearTimeout(game.roundTimer);
+  game.finishedBy = byName || null;
+  game.collecting = true;
+  game.endsAt = null;
+
+  game.pending = new Set(
+    game.players
+      .filter((p) => p.inRound && p.connected && normalize(p.name) !== normalize(byName || ""))
+      .map((p) => p.name)
+  );
+  for (const p of game.players) {
+    if (p.inRound && p.connected && p.ctx) p.ctx.send({ type: "collect" });
+  }
+  if (game.pending.size === 0) {
+    finishCollect();
+  } else {
+    game.collectTimer = setTimeout(finishCollect, COLLECT_GRACE_MS);
+  }
+}
+
+function finishCollect() {
+  if (!game.collecting) return;
+  game.collecting = false;
+  clearTimeout(game.collectTimer);
+  game.phase = "scoring";
+  broadcast();
+}
+
+function sanitizeAnswers(raw) {
+  const arr = Array.isArray(raw) ? raw : [];
+  return game.categories.map((_, i) => String(arr[i] ?? "").slice(0, 40));
+}
+
+// ── Nachrichten der Mitspieler (und des Hosts selbst) ──
+function hostHandle(ctx, msg) {
+  if (!game || !msg || typeof msg !== "object") return;
+
+  if (msg.type === "join") {
+    const name = String(msg.name || "").trim().slice(0, 20);
+    if (!name) {
+      ctx.send({ type: "error", msg: "Bitte einen Namen eingeben." });
+      return;
+    }
+    const existing = playerByName(name);
+    if (existing && existing.connected) {
+      ctx.send({ type: "error", msg: "Dieser Name ist schon vergeben." });
+      return;
+    }
+    let p;
+    if (existing) {
+      existing.ctx = ctx;
+      existing.connected = true;
+      p = existing;
+    } else {
+      if (game.players.length >= 8) {
+        ctx.send({ type: "error", msg: "Das Spiel ist voll (max. 8 Spieler)." });
+        return;
+      }
+      p = {
+        name,
+        ctx,
+        connected: true,
+        score: 0,
+        inRound: false,
+        answers: game.categories.map(() => ""),
+        invalid: game.categories.map(() => false),
+      };
+      game.players.push(p);
+    }
+    ctx.player = p;
+    if (!game.hostName) game.hostName = p.name; // der Erste (= Ersteller) ist Spielleiter
+    ctx.send({ type: "joined", name: p.name });
+    broadcast();
+    return;
+  }
+
+  const me = ctx.player;
+  if (!me) return;
+  const isHost = me.name === game.hostName;
+
+  switch (msg.type) {
+    case "config": {
+      if (!isHost || game.phase !== "lobby") return;
+      if (Array.isArray(msg.categories)) {
+        const cats = [];
+        for (const c of msg.categories) {
+          const name = String(c).trim().slice(0, 30);
+          if (name && !cats.some((x) => normalize(x) === normalize(name))) cats.push(name);
+          if (cats.length >= 12) break;
+        }
+        if (cats.length >= 2) game.categories = cats;
+      }
+      if (msg.roundSeconds !== undefined) {
+        game.roundSeconds = Math.min(600, Math.max(10, parseInt(msg.roundSeconds, 10) || 60));
+      }
+      if (msg.totalRounds !== undefined) {
+        game.totalRounds = Math.min(26, Math.max(1, parseInt(msg.totalRounds, 10) || 5));
+      }
+      broadcast();
+      return;
+    }
+
+    case "start": {
+      if (!isHost || game.phase !== "lobby") return;
+      game.round = 0;
+      game.usedLetters = [];
+      for (const p of game.players) p.score = 0;
+      startRound();
+      return;
+    }
+
+    case "answers": {
+      if (game.phase !== "play" || !me.inRound) return;
+      me.answers = sanitizeAnswers(msg.answers);
+      if (game.collecting) {
+        game.pending.delete(me.name);
+        if (game.pending.size === 0) finishCollect();
+      }
+      return;
+    }
+
+    case "finish": {
+      if (game.phase !== "play" || game.collecting || !me.inRound) return;
+      me.answers = sanitizeAnswers(msg.answers);
+      if (!me.answers.every((a) => a.trim() !== "")) {
+        ctx.send({ type: "error", msg: "Erst alle Felder ausfüllen!" });
+        return;
+      }
+      endRound(me.name);
+      return;
+    }
+
+    case "toggleInvalid": {
+      if (!isHost || game.phase !== "scoring") return;
+      const target = playerByName(String(msg.player || ""));
+      const ci = parseInt(msg.catIdx, 10);
+      if (!target || !target.inRound || !(ci >= 0 && ci < game.categories.length)) return;
+      target.invalid[ci] = !target.invalid[ci];
+      broadcast();
+      return;
+    }
+
+    case "confirmScores": {
+      if (!isHost || game.phase !== "scoring") return;
+      const { totals } = scoringMatrix();
+      for (const p of game.players) p.score += totals[p.name] || 0;
+      game.phase = "scoreboard";
+      broadcast();
+      return;
+    }
+
+    case "nextRound": {
+      if (!isHost || game.phase !== "scoreboard" || game.round >= game.totalRounds) return;
+      startRound();
+      return;
+    }
+
+    case "endGame": {
+      if (!isHost || game.phase !== "scoreboard") return;
+      game.phase = "gameover";
+      broadcast();
+      return;
+    }
+
+    case "playAgain": {
+      if (!isHost || game.phase !== "gameover") return;
+      game.phase = "lobby";
+      game.round = 0;
+      game.usedLetters = [];
+      game.letter = null;
+      game.finishedBy = null;
+      for (const p of game.players) {
+        p.score = 0;
+        p.inRound = false;
+      }
+      game.players = game.players.filter((p) => p.connected);
+      broadcast();
+      return;
+    }
+  }
+}
+
+function hostDrop(ctx) {
+  if (!game || !ctx.player) return;
+  const p = ctx.player;
+  p.connected = false;
+  p.ctx = null;
+  if (game.phase === "lobby") {
+    game.players = game.players.filter((q) => q !== p);
+  }
+  if (game.collecting) {
+    game.pending.delete(p.name);
+    if (game.pending.size === 0) finishCollect();
+  }
+  broadcast();
+}
+
+// ── Host starten ──
+function createGame(name, attempt) {
+  if ((attempt || 0) > 5) {
+    toast("Konnte keinen Raum erstellen — später erneut versuchen.");
+    return;
+  }
+  const code = genCode();
+  $("reconnect-title").textContent = "Raum wird erstellt …";
+  $("reconnect-hint").textContent = "Verbinde mit dem Vermittlungsserver …";
+  $("reconnect-overlay").classList.remove("hidden");
+
+  const peer = new Peer(ROOM_PREFIX + code, peerOptions());
+  hostPeer = peer;
+
+  peer.on("open", () => {
+    $("reconnect-overlay").classList.add("hidden");
+    game = newGameState(code);
+    // Der Host ist selbst Spieler: lokale Schleife statt Netzwerk
+    myName = name;
+    clientSend = (obj) => setTimeout(() => hostHandle(localCtx, obj), 0);
+    clientSend({ type: "join", name });
+  });
+
+  peer.on("connection", (conn) => {
+    const ctx = {
+      player: null,
+      send: (obj) => { try { conn.send(obj); } catch { /* Verbindung weg */ } },
+    };
+    conn.on("data", (msg) => hostHandle(ctx, msg));
+    conn.on("close", () => hostDrop(ctx));
+    conn.on("error", () => hostDrop(ctx));
+  });
+
+  peer.on("error", (e) => {
+    if (e.type === "unavailable-id") {
+      peer.destroy();
+      createGame(name, (attempt || 0) + 1); // Code-Kollision: neuen Code würfeln
+    } else if (e.type !== "peer-unavailable") {
+      $("reconnect-overlay").classList.add("hidden");
+      toast("Verbindungsfehler: " + e.type);
+    }
+  });
+}
+
+const localCtx = {
+  player: null,
+  send: (obj) => setTimeout(() => clientOnMessage(obj), 0),
+};
+
+// ═══════════════════════════════════════════════════════════════════
+//  CLIENT — läuft bei allen (der Host nutzt die lokale Schleife)
+// ═══════════════════════════════════════════════════════════════════
+let myName = "";
+let clientSend = null;
+let joined = false;
+let iAmHostBrowser = false;
+let state = null;
+let localAnswers = [];
+let builtRound = 0;
+let splashRound = 0;
+let timerInterval = null;
+let sendDebounce = null;
+let localEndsAt = null; // Rundenende in lokaler Uhr
+
+// Gast-Verbindung
+let guestPeer = null;
+let guestConn = null;
+let roomCode = null;
+let wantReconnect = false;
+
+function sendMsg(obj) {
+  if (clientSend) clientSend(obj);
+}
+
+function sendAnswers() {
+  sendMsg({ type: "answers", answers: localAnswers });
+}
+
+function clientOnMessage(msg) {
+  if (!msg || typeof msg !== "object") return;
+
+  if (msg.type === "error") { toast(msg.msg); return; }
+
+  if (msg.type === "joined") {
+    joined = true;
+    myName = msg.name;
+    sessionStorage.setItem("slf-name", myName);
+    return;
+  }
+
+  if (msg.type === "collect") { sendAnswers(); return; }
+
+  if (msg.type === "state") {
+    state = msg;
+    localEndsAt = msg.endsAt ? Date.now() + (msg.endsAt - msg.now) : null;
+    render();
+  }
+}
+
+// ── Gast: verbinden & wiederverbinden ──
+function joinGame(code, name) {
+  roomCode = code;
+  myName = name;
+  wantReconnect = true;
+  sessionStorage.setItem("slf-room", code);
+  sessionStorage.setItem("slf-name", name);
+  connectGuest(true);
+}
+
+function connectGuest(firstTry) {
+  if (guestPeer) { try { guestPeer.destroy(); } catch {} }
+  $("reconnect-title").textContent = firstTry ? "Trete bei …" : "Verbindung unterbrochen";
+  $("reconnect-hint").textContent = firstTry ? "Verbinde mit dem Spiel …" : "Verbinde neu …";
+  $("reconnect-overlay").classList.remove("hidden");
+
+  const peer = new Peer(peerOptions());
+  guestPeer = peer;
+
+  peer.on("open", () => {
+    const conn = peer.connect(ROOM_PREFIX + roomCode, { reliable: true, serialization: "json" });
+    guestConn = conn;
+    conn.on("open", () => {
+      $("reconnect-overlay").classList.add("hidden");
+      clientSend = (obj) => { try { conn.send(obj); } catch {} };
+      sendMsg({ type: "join", name: myName });
+    });
+    conn.on("data", clientOnMessage);
+    conn.on("close", guestLost);
+    conn.on("error", guestLost);
+  });
+
+  peer.on("error", (e) => {
+    if (e.type === "peer-unavailable") {
+      if (joined) {
+        // Host kurz weg? Weiter versuchen.
+        setTimeout(() => wantReconnect && connectGuest(false), 3000);
+      } else {
+        wantReconnect = false;
+        $("reconnect-overlay").classList.add("hidden");
+        sessionStorage.removeItem("slf-room");
+        toast("Kein Spiel mit diesem Code gefunden.");
+        show("view-home");
+      }
+    } else if (e.type === "unavailable-id") {
+      setTimeout(() => wantReconnect && connectGuest(false), 1000);
+    } else {
+      toast("Verbindungsfehler: " + e.type);
+    }
+  });
+}
+
+let reconnectPending = false;
+function guestLost() {
+  if (!wantReconnect || reconnectPending) return;
+  reconnectPending = true;
+  joined = false;
+  $("reconnect-title").textContent = "Verbindung unterbrochen";
+  $("reconnect-hint").textContent = "Verbinde neu …";
+  $("reconnect-overlay").classList.remove("hidden");
+  setTimeout(() => {
+    reconnectPending = false;
+    if (wantReconnect) connectGuest(false);
+  }, 2000);
+}
+
+// ── Home ──
+$("create-btn").addEventListener("click", () => {
+  const name = $("host-name").value.trim();
+  if (!name) { toast("Bitte einen Namen eingeben."); return; }
+  iAmHostBrowser = true;
+  sessionStorage.setItem("slf-name", name);
+  createGame(name, 0);
+});
+$("host-name").addEventListener("keydown", (e) => { if (e.key === "Enter") $("create-btn").click(); });
+
+$("join-btn").addEventListener("click", () => {
+  const code = $("join-code").value.trim().toUpperCase();
+  const name = $("join-name").value.trim();
+  if (code.length !== 5) { toast("Der Raum-Code hat 5 Zeichen."); return; }
+  if (!name) { toast("Bitte einen Namen eingeben."); return; }
+  joinGame(code, name);
+});
+$("join-name").addEventListener("keydown", (e) => { if (e.key === "Enter") $("join-btn").click(); });
+$("join-code").addEventListener("keydown", (e) => { if (e.key === "Enter") $("join-name").focus(); });
+
+// ── Rendering ──
+function render() {
+  if (!state || !joined) return;
+  switch (state.phase) {
+    case "lobby": renderLobby(); break;
+    case "play": renderPlay(); break;
+    case "scoring": renderScoring(); break;
+    case "scoreboard": renderScoreboard(); break;
+    case "gameover": renderGameOver(); break;
+  }
+}
+
+function shareUrl() {
+  return location.origin + location.pathname + "?room=" + state.code;
+}
+
+function renderLobby() {
+  stopTimer();
+  builtRound = 0;
+
+  $("room-code-display").textContent = state.code;
+  $("room-share").textContent = "Link zum Teilen: " + shareUrl();
+
+  const pl = $("lobby-players");
+  pl.innerHTML = "";
+  for (const p of state.players) {
+    const chip = document.createElement("span");
+    chip.className = "chip player" + (p.connected ? "" : " offline");
+    chip.textContent =
+      (p.name === state.hostName ? "👑 " : "") +
+      p.name +
+      (p.name === state.you ? " (du)" : "");
+    pl.append(chip);
+  }
+
+  $("host-config").classList.toggle("hidden", !state.isHost);
+  $("guest-info").classList.toggle("hidden", state.isHost);
+
+  if (state.isHost) {
+    renderCategoryChips();
+    const sec = $("round-seconds");
+    const cnt = $("round-count");
+    if (document.activeElement !== sec) sec.value = state.roundSeconds;
+    if (document.activeElement !== cnt) cnt.value = state.totalRounds;
+  } else {
+    $("guest-config").innerHTML =
+      "<strong>Kategorien:</strong> " + state.categories.map(escapeHtml).join(", ") +
+      "<br><strong>Zeit pro Runde:</strong> " + state.roundSeconds + " Sekunden" +
+      "<br><strong>Runden:</strong> " + state.totalRounds;
+    $("guest-hostname").textContent = state.hostName || "…";
+  }
+  show("view-lobby");
+}
+
+function renderCategoryChips() {
+  const cl = $("category-list");
+  cl.innerHTML = "";
+  state.categories.forEach((cat, i) => {
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.append(cat);
+    const x = document.createElement("button");
+    x.textContent = "×";
+    x.title = "Entfernen";
+    x.addEventListener("click", () => {
+      if (state.categories.length <= 2) { toast("Mindestens zwei Kategorien nötig."); return; }
+      const cats = state.categories.filter((_, j) => j !== i);
+      sendMsg({ type: "config", categories: cats });
+    });
+    chip.append(x);
+    cl.append(chip);
+  });
+}
+
+function addCategory() {
+  const input = $("category-name");
+  const cat = input.value.trim();
+  if (!cat) return;
+  if (state.categories.some((c) => c.trim().toLowerCase() === cat.toLowerCase())) {
+    toast("Diese Kategorie gibt es schon.");
+    return;
+  }
+  if (state.categories.length >= 12) { toast("Maximal 12 Kategorien."); return; }
+  sendMsg({ type: "config", categories: [...state.categories, cat] });
+  input.value = "";
+  input.focus();
+}
+$("add-category").addEventListener("click", addCategory);
+$("category-name").addEventListener("keydown", (e) => { if (e.key === "Enter") addCategory(); });
+
+$("round-seconds").addEventListener("change", () =>
+  sendMsg({ type: "config", roundSeconds: $("round-seconds").value }));
+$("round-count").addEventListener("change", () =>
+  sendMsg({ type: "config", totalRounds: $("round-count").value }));
+
+$("start-game").addEventListener("click", () => sendMsg({ type: "start" }));
+
+// ── Spielphase ──
+function renderPlay() {
+  const meInRound = state.players.some((p) => p.name === state.you && p.inRound);
+
+  $("play-round-label").textContent = `Runde ${state.round} von ${state.totalRounds}`;
+  $("play-letter").textContent = state.letter;
+
+  if (!meInRound) {
+    $("play-player-label").textContent = "Du bist ab der nächsten Runde dabei — kurz warten!";
+    $("play-table").querySelector("tbody").innerHTML = "";
+    $("finish-inputs").disabled = true;
+    show("view-play");
+    startTimer();
+    return;
+  }
+
+  if (builtRound !== state.round) {
+    builtRound = state.round;
+    localAnswers = state.categories.map(() => "");
+    buildPlayTable();
+    showSplash();
+  }
+  $("finish-inputs").disabled = false;
+  $("play-player-label").textContent = `Deine Antworten mit „${state.letter}":`;
+  show("view-play");
+  startTimer();
+}
+
+function buildPlayTable() {
+  const tbody = $("play-table").querySelector("tbody");
+  tbody.innerHTML = "";
+  state.categories.forEach((cat, i) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = cat;
+    th.style.width = "30%";
+    const td = document.createElement("td");
+    const input = document.createElement("input");
+    input.type = "text";
+    input.dataset.idx = i;
+    input.autocomplete = "off";
+    input.addEventListener("input", () => {
+      localAnswers[i] = input.value;
+      clearTimeout(sendDebounce);
+      sendDebounce = setTimeout(sendAnswers, 800);
+    });
+    input.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const next = tbody.querySelector(`input[data-idx="${i + 1}"]`);
+        if (next) next.focus(); else $("finish-inputs").focus();
+      }
+    });
+    td.append(input);
+    tr.append(th, td);
+    tbody.append(tr);
+  });
+}
+
+function showSplash() {
+  if (splashRound === state.round) return;
+  splashRound = state.round;
+  $("splash-round").textContent = `Runde ${state.round} von ${state.totalRounds}`;
+  $("letter-splash").classList.remove("hidden");
+  let ticks = 0;
+  const spin = setInterval(() => {
+    $("splash-letter").textContent = ALPHABET[Math.floor(Math.random() * ALPHABET.length)];
+    ticks++;
+    if (ticks > 16) {
+      clearInterval(spin);
+      $("splash-letter").textContent = state.letter;
+      setTimeout(() => {
+        $("letter-splash").classList.add("hidden");
+        const first = $("play-table").querySelector("input");
+        if (first) first.focus();
+      }, 1300);
+    }
+  }, 90);
+}
+
+$("finish-inputs").addEventListener("click", () => {
+  if (localAnswers.some((a) => a.trim() === "")) {
+    toast("Erst alle Felder ausfüllen!");
+    return;
+  }
+  sendMsg({ type: "finish", answers: localAnswers });
+});
+
+function startTimer() {
+  stopTimer();
+  updateTimerDisplay();
+  timerInterval = setInterval(updateTimerDisplay, 250);
+}
+
+function stopTimer() {
+  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+}
+
+function updateTimerDisplay() {
+  const el = $("play-timer");
+  if (!state || !localEndsAt) { el.textContent = ""; return; }
+  const left = Math.max(0, Math.ceil((localEndsAt - Date.now()) / 1000));
+  const shown = Math.min(state.roundSeconds, left);
+  el.textContent = shown;
+  el.classList.toggle("low", shown <= 10);
+}
+
+// ── Auswertung ──
+function renderScoring() {
+  stopTimer();
+  $("scoring-label").textContent =
+    `Auswertung — Runde ${state.round}, Buchstabe „${state.letter}"` +
+    (state.finishedBy ? ` · ${state.finishedBy} rief zuerst „Fertig!"` : "");
+
+  $("scoring-host-hint").textContent = state.isHost
+    ? "Klicke eine Antwort an, um sie als ungültig zu markieren (und zurück)."
+    : "";
+
+  const inRound = state.players.filter((p) => p.inRound);
+  const table = $("scoring-table");
+  table.innerHTML = "";
+
+  const head = document.createElement("tr");
+  head.append(document.createElement("th"));
+  for (const p of inRound) {
+    const th = document.createElement("th");
+    th.textContent = p.name + (p.name === state.you ? " (du)" : "");
+    head.append(th);
+  }
+  table.append(head);
+
+  state.categories.forEach((cat, ci) => {
+    const tr = document.createElement("tr");
+    const th = document.createElement("th");
+    th.textContent = cat;
+    tr.append(th);
+
+    for (const p of inRound) {
+      const td = document.createElement("td");
+      const raw = (state.answers[p.name] && state.answers[p.name][ci] || "").trim();
+      const isInvalid = state.invalid[p.name] && state.invalid[p.name][ci];
+      const pts = state.points[p.name] ? state.points[p.name][ci] : 0;
+      const wrongLetter = raw && !isInvalid && pts === 0;
+
+      td.classList.toggle("invalid-answer", Boolean(isInvalid || wrongLetter));
+
+      const answerLine = document.createElement("div");
+      answerLine.textContent = raw || "—";
+      if (isInvalid) answerLine.style.textDecoration = "line-through";
+      td.append(answerLine);
+
+      const ptsLine = document.createElement("span");
+      ptsLine.className = `score-check pts-${pts}`;
+      ptsLine.textContent = wrongLetter ? "0 Punkte (ungültig)" : `${pts} Punkte`;
+      td.append(ptsLine);
+
+      if (state.isHost && raw) {
+        td.style.cursor = "pointer";
+        td.title = "Klicken: gültig/ungültig umschalten";
+        td.addEventListener("click", () =>
+          sendMsg({ type: "toggleInvalid", player: p.name, catIdx: ci }));
+      }
+      tr.append(td);
+    }
+    table.append(tr);
+  });
+
+  const sumRow = document.createElement("tr");
+  const sumTh = document.createElement("th");
+  sumTh.textContent = "Runde gesamt";
+  sumRow.append(sumTh);
+  for (const p of inRound) {
+    const td = document.createElement("td");
+    td.className = "points";
+    td.innerHTML = `<strong>${state.roundTotals[p.name] || 0}</strong>`;
+    sumRow.append(td);
+  }
+  table.append(sumRow);
+
+  $("scoring-actions").classList.toggle("hidden", !state.isHost);
+  const wait = $("scoring-wait");
+  wait.classList.toggle("hidden", state.isHost);
+  wait.textContent = `Warte, bis ${state.hostName} die Punkte übernimmt …`;
+
+  show("view-scoring");
+}
+
+$("confirm-scores").addEventListener("click", () => sendMsg({ type: "confirmScores" }));
+
+// ── Punktestand ──
+function sortedPlayers() {
+  return [...state.players].sort((a, b) => b.score - a.score);
+}
+
+function renderScoreboard() {
+  stopTimer();
+  $("scoreboard-label").textContent = `Punktestand nach Runde ${state.round}`;
+  const table = $("scoreboard-table");
+  table.innerHTML = "";
+  const ranked = sortedPlayers();
+  const best = ranked.length ? ranked[0].score : 0;
+  ranked.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    const rank = document.createElement("th");
+    rank.textContent = `${i + 1}.`;
+    rank.style.width = "3rem";
+    const name = document.createElement("td");
+    name.textContent = p.name + (p.name === state.you ? " (du)" : "") + (p.connected ? "" : " (offline)");
+    if (p.score === best && best > 0) name.classList.add("leader");
+    const pts = document.createElement("td");
+    pts.className = "points scoreboard-total";
+    pts.textContent = p.score;
+    tr.append(rank, name, pts);
+    table.append(tr);
+  });
+
+  const isLast = state.round >= state.totalRounds;
+  $("scoreboard-actions").classList.toggle("hidden", !state.isHost);
+  $("next-round").classList.toggle("hidden", isLast);
+  $("end-game").textContent = isLast ? "Zum Endergebnis" : "Spiel beenden";
+  const wait = $("scoreboard-wait");
+  wait.classList.toggle("hidden", state.isHost);
+  wait.textContent = `Warte auf ${state.hostName} …`;
+
+  show("view-scoreboard");
+}
+
+$("next-round").addEventListener("click", () => sendMsg({ type: "nextRound" }));
+$("end-game").addEventListener("click", () => sendMsg({ type: "endGame" }));
+
+// ── Spielende ──
+function renderGameOver() {
+  stopTimer();
+  const ranked = sortedPlayers();
+  const best = ranked.length ? ranked[0].score : 0;
+  const winners = ranked.filter((p) => p.score === best).map((p) => p.name);
+  $("winner-line").innerHTML = winners.length === 1
+    ? `🏆 <strong>${escapeHtml(winners[0])}</strong> gewinnt mit ${best} Punkten!`
+    : `🤝 Unentschieden zwischen <strong>${winners.map(escapeHtml).join(" und ")}</strong> (${best} Punkte)!`;
+
+  const table = $("final-table");
+  table.innerHTML = "";
+  ranked.forEach((p, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `<th style="width:3rem">${i + 1}.</th><td>${escapeHtml(p.name)}</td>` +
+      `<td class="points"><strong>${p.score}</strong></td>`;
+    table.append(tr);
+  });
+
+  $("play-again").classList.toggle("hidden", !state.isHost);
+  show("view-gameover");
+}
+
+$("play-again").addEventListener("click", () => sendMsg({ type: "playAgain" }));
+
+// ── Warnung, wenn der Host die Seite verlassen will ──
+window.addEventListener("beforeunload", (e) => {
+  if (iAmHostBrowser && game && game.phase !== "lobby" && game.players.some((p) => p.connected && p.name !== game.hostName)) {
+    e.preventDefault();
+    e.returnValue = "";
+  }
+});
+
+// ─── Init ────────────────────────────────────────────────────────────
+const savedName = sessionStorage.getItem("slf-name") || "";
+if (savedName) {
+  $("host-name").value = savedName;
+  $("join-name").value = savedName;
+}
+const urlRoom = (qs.get("room") || "").toUpperCase();
+const savedRoom = sessionStorage.getItem("slf-room") || "";
+if (urlRoom) {
+  $("join-code").value = urlRoom;
+  if (savedName) $("join-name").focus();
+} else if (savedRoom && savedName) {
+  // Gast war schon im Spiel (z. B. Seite neu geladen): automatisch wieder beitreten
+  $("join-code").value = savedRoom;
+  joinGame(savedRoom, savedName);
+}
+show("view-home");
+</script>
+</body>
+</html>
